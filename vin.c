@@ -21,6 +21,8 @@
 struct Cursor {
     size_t x;
     size_t y;
+    size_t old_x;
+    size_t old_y;
 };
 
 struct Window {
@@ -57,16 +59,24 @@ static void handle_ex_mode(
             *mode = NORMAL;
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "            ");
+            cur->x = cur->old_x;
+            cur->y = cur->old_y;
             break;
 
         case '\n':
             *mode = NORMAL;
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "            ");
+            cur->x = cur->old_x;
+            cur->y = cur->old_y;
             break;
 
         case 'q':
             *mode = QUIT;
+            break;
+
+        case 'w':
+            /* write out */
             break;
 
         default:
@@ -160,6 +170,8 @@ static void handle_normal_mode(
 
         case ':':
             *mode = EX;
+            cur->old_x = cur->x;
+            cur->old_y = cur->y;
             cur->x = 0;
             cur->y = win->maxlines - 1;
             wmove(win->curses_win, win->maxlines - 1, 0);
