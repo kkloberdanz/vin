@@ -1,14 +1,98 @@
 #include <stdio.h>
 #include <curses.h>
 
-int main(int argc, char **argv) {
-    WINDOW *window;
-    FILE *fp = NULL;
+struct Cursor {
+    size_t x;
+    size_t y;
+};
+
+struct Window {
+    WINDOW *curses_win;
     size_t maxlines;
     size_t maxcols;
-    size_t x = 0;
-    size_t y = 0;
+};
+
+enum Mode {
+    NORMAL,
+    INSERT
+};
+
+void cursor_advance(struct Cursor *cur) {
+    cur->x++;
+}
+
+void wputchar(struct Window *win, struct Cursor *cur, int c) {
+    waddch(win->curses_win, c);
+    cursor_advance(cur);
+}
+
+void handle_insert_mode(struct Window *win, struct Cursor *cur, enum Mode *mode, int c) {
+    switch (c) {
+        case KEY_EXIT: /* escape key */
+            *mode = NORMAL;
+            break;
+
+        default:
+            wputchar(win, cur, c);
+    }
+}
+
+void handle_normal_mode(struct Window *win, struct Cursor *cur, enum Mode *mode, int c) {
+    switch (c) {
+        case 'k':
+            if (cur->y > 0) {
+                cur->y--;
+            }
+            break;
+
+        case '\n':
+        case 'j':
+            if (cur->y < win->maxlines - 1) {
+                cur->y++;
+            }
+            break;
+
+        case ' ':
+        case 'l':
+            if (cur->x < win->maxcols - 1) {
+                cur->x++;
+            }
+            break;
+
+        case 'h':
+            if (cur->x > 0) {
+                cur->x--;
+            }
+            break;
+
+        case 'x':
+            wputchar(win, cur, ' ');
+            break;
+
+        case 'i':
+            *mode = INSERT;
+            break;
+
+        default:
+            fprintf(stderr, "not an editor command: '%c'\n", c);
+            break;
+    }
+}
+
+int main(int argc, char **argv) {
+    struct Window win;
+    FILE *fp = NULL;
     int c;
+    struct Cursor cur;
+    enum Mode mode;
+
+    mode = NORMAL;
+
+    cur.x = 0;
+    cur.y = 0;
+
+    win.maxlines = LINES;
+    win.maxcols = COLS;
 
     /* setup curses */
     initscr();
@@ -17,53 +101,25 @@ int main(int argc, char **argv) {
 
     clear();
 
-    maxlines = LINES;
-    maxcols = COLS;
-
     /*mvaddch(y[0], x[0], '0');*/
 
     if (argc == 2) {
         fp = fopen(argv[1], "rw");
     }
 
-    window = newwin(maxlines, maxcols, x, y);
-    while ((c = wgetch(window))) {
-        switch(c) {
-            case 'k':
-                if (y > 0) {
-                    y--;
-                }
+    win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
+    while ((c = wgetch(win.curses_win))) {
+        switch (mode) {
+            case NORMAL:
+                handle_normal_mode(&win, &cur, &mode, c);
                 break;
 
-            case 'j':
-                if (y < maxlines - 1) {
-                    y++;
-                }
-                break;
-
-            case 'l':
-                if (x < maxcols - 1) {
-                    x++;
-                }
-                break;
-
-            case 'h':
-                if (x > 0) {
-                    x--;
-                }
-                break;
-
-            case 10:
-                break;
-
-            default:
+            case INSERT:
+                handle_insert_mode(&win, &cur, &mode, c);
                 break;
         }
-        /*
-        fprintf(stderr, "key: %d, %lu, %lu\n", c, x, y);
-        */
-        wmove(window, y, x);
-        wrefresh(window);
+        wmove(win.curses_win, cur.y, cur.x);
+        wrefresh(win.curses_win);
     }
     clrtoeol();
     refresh();
