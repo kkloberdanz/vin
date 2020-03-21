@@ -99,6 +99,7 @@ static void handle_insert_mode(
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
+            cur->x--;
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "            ");
             break;
@@ -119,8 +120,11 @@ static void handle_insert_mode(
             break;
 
         default:
-            wputchar(win, cur, c);
-            text_insert_char(cur->line, c);
+            text_insert_char(cur->line, cur->x, c);
+            cursor_advance(cur);
+            wmove(win->curses_win, cur->y, 0);
+            waddstr(win->curses_win, cur->line->data);
+            wmove(win->curses_win, cur->y, cur->x);
     }
 }
 
@@ -132,22 +136,30 @@ static void handle_normal_mode(
 ) {
     switch (c) {
         case 'k':
-            if (cur->y > 0) {
-                cur->y--;
+            if (cur->line->prev) {
+                cur->line = cur->line->prev;
+                if (cur->y > 0) {
+                    cur->y--;
+                }
             }
             break;
 
         case '\n':
         case 'j':
-            if (cur->y < win->maxlines - 1) {
-                cur->y++;
+            if (cur->line->next) {
+                cur->line = cur->line->next;
+                if (cur->y < win->maxlines - 1) {
+                    cur->y++;
+                }
             }
             break;
 
         case ' ':
         case 'l':
-            if (cur->x < win->maxcols - 1) {
-                cur->x++;
+            if (cur->x < cur->line->len - 1) {
+                if (cur->x < win->maxcols - 1) {
+                    cur->x++;
+                }
             }
             break;
 
@@ -164,6 +176,8 @@ static void handle_normal_mode(
         case 'o':
             cur->y++;
             cur->x = 0;
+
+            cur->line = text_new_line(cur->line, cur->line->next);
             /* fallthrough */
 
         case 'i':

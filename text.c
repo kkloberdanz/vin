@@ -21,7 +21,7 @@ struct Text *text_new_line(struct Text *prev, struct Text *next) {
     return line;
 }
 
-void text_insert_char(struct Text *line, char c) {
+void text_push_char(struct Text *line, char c) {
     if (line->len >= line->capacity) {
         line->capacity *= 2;
         line->data = realloc(line->data, line->capacity + 1);
@@ -47,4 +47,19 @@ void text_backspace(struct Text *line, size_t index) {
     for (i = index; line->data[i] != '\0'; i++) {
         line->data[i] = line->data[i + 1];
     }
+}
+
+void text_insert_char(struct Text *line, size_t index, char c) {
+    size_t i;
+    line->len++;
+
+    if (line->len >= line->capacity) {
+        line->capacity *= 2;
+        line->data = realloc(line->data, line->capacity + 1);
+        line->data[line->capacity] = '\0';
+    }
+    for (i = line->len - 1; i > index; i--) {
+        line->data[i] = line->data[i - 1];
+    }
+    line->data[index] = c;
 }
