@@ -1,3 +1,20 @@
+/*
+ *     Copyright (C) 2020 Kyle Kloberdanz
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Affero General Public License as
+ *  published by the Free Software Foundation, either version 3 of the
+ *  License, or (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Affero General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Affero General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <stdio.h>
 #include <curses.h>
 
@@ -19,16 +36,16 @@ enum Mode {
     QUIT
 };
 
-void cursor_advance(struct Cursor *cur) {
+static void cursor_advance(struct Cursor *cur) {
     cur->x++;
 }
 
-void wputchar(struct Window *win, struct Cursor *cur, int c) {
+static void wputchar(struct Window *win, struct Cursor *cur, int c) {
     waddch(win->curses_win, c);
     cursor_advance(cur);
 }
 
-void handle_ex_mode(
+static void handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -38,10 +55,14 @@ void handle_ex_mode(
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "            ");
             break;
 
         case '\n':
             *mode = NORMAL;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "            ");
             break;
 
         case 'q':
@@ -54,7 +75,7 @@ void handle_ex_mode(
 }
 
 
-void handle_insert_mode(
+static void handle_insert_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -63,9 +84,11 @@ void handle_insert_mode(
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "            ");
             break;
 
-        case 127:
+        case 127: /* backspace key */
             cur->x--;
             wmove(win->curses_win, cur->y, cur->x);
             wrefresh(win->curses_win);
@@ -83,7 +106,7 @@ void handle_insert_mode(
     }
 }
 
-void handle_normal_mode(
+static void handle_normal_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -120,8 +143,15 @@ void handle_normal_mode(
             wputchar(win, cur, ' ');
             break;
 
+        case 'o':
+            cur->y++;
+            cur->x = 0;
+            /* fallthrough */
+
         case 'i':
             *mode = INSERT;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "-- INSERT --");
             break;
 
         case '0':
@@ -130,8 +160,9 @@ void handle_normal_mode(
 
         case ':':
             *mode = EX;
+            cur->x = 0;
             cur->y = win->maxlines - 1;
-            cur->x = win->maxcols - 1;
+            wmove(win->curses_win, win->maxlines - 1, 0);
             wputchar(win, cur, c);
             break;
 
@@ -140,7 +171,7 @@ void handle_normal_mode(
     }
 }
 
-int event_loop(struct Window *win, struct Cursor *cur) {
+static int event_loop(struct Window *win, struct Cursor *cur) {
     int c;
     enum Mode mode = NORMAL;
     while ((c = wgetch(win->curses_win))) {
@@ -160,6 +191,7 @@ int event_loop(struct Window *win, struct Cursor *cur) {
             case QUIT:
                 return 0;
         }
+        getmaxyx(win->curses_win, win->maxlines, win->maxcols);
         wmove(win->curses_win, cur->y, cur->x);
         wrefresh(win->curses_win);
     }
