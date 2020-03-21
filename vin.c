@@ -18,11 +18,15 @@
 #include <stdio.h>
 #include <curses.h>
 
+#include "text.h"
+
 struct Cursor {
     size_t x;
     size_t y;
     size_t old_x;
     size_t old_y;
+    struct Text *line;
+    struct Text *top_of_text;
 };
 
 struct Window {
@@ -51,6 +55,7 @@ static void handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
+    FILE *fp,
     int c
 ) {
     wputchar(win, cur, c);
@@ -77,13 +82,13 @@ static void handle_ex_mode(
 
         case 'w':
             /* write out */
+            text_write(cur->top_of_text, fp);
             break;
 
         default:
             break;
     }
 }
-
 
 static void handle_insert_mode(
     struct Window *win,
@@ -103,16 +108,19 @@ static void handle_insert_mode(
             wmove(win->curses_win, cur->y, cur->x);
             wrefresh(win->curses_win);
             waddch(win->curses_win, ' ');
+            text_backspace(cur->line, cur->x);
             break;
 
         case '\n':
             wputchar(win, cur, c);
             cur->y++;
             cur->x = 0;
+            cur->line = text_new_line(cur->line, cur->line->next);
             break;
 
         default:
             wputchar(win, cur, c);
+            text_insert_char(cur->line, c);
     }
 }
 
@@ -183,7 +191,7 @@ static void handle_normal_mode(
     }
 }
 
-static int event_loop(struct Window *win, struct Cursor *cur) {
+static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
     int c;
     enum Mode mode = NORMAL;
     while ((c = wgetch(win->curses_win))) {
@@ -197,7 +205,7 @@ static int event_loop(struct Window *win, struct Cursor *cur) {
                 break;
 
             case EX:
-                handle_ex_mode(win, cur, &mode, c);
+                handle_ex_mode(win, cur, &mode, fp, c);
                 break;
 
             case QUIT:
@@ -217,6 +225,8 @@ int main(int argc, char **argv) {
 
     cur.x = 0;
     cur.y = 0;
+    cur.line = text_new_line(NULL, NULL);
+    cur.top_of_text = cur.line;
 
     /* setup curses */
     initscr();
@@ -228,13 +238,14 @@ int main(int argc, char **argv) {
     win.maxlines = LINES;
     win.maxcols = COLS;
 
+    puts(argv[1]);
     if (argc == 2) {
-        fp = fopen(argv[1], "rw");
+        fp = fopen(argv[1], "w");
     }
 
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
 
-    event_loop(&win, &cur);
+    event_loop(&win, &cur, fp);
 
     clrtoeol();
     refresh();

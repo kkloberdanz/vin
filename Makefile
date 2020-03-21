@@ -22,14 +22,22 @@ OPTIM=-Os
 LDFLAGS=-lcurses
 CFLAGS= $(WARN_FLAGS) $(OPTIM) $(STD)
 
+SRC = $(wildcard *.c) $(wildcard extern/*.c)
+HEADERS = $(wildcard *.h)
+OBJS = $(patsubst %.c,%.o,$(SRC))
+
 all: vin
 
 debug: OPTIM := -ggdb3 -O0
 debug: all
 
-vin: vin.c
-	$(CC) -o vin vin.c $(CFLAGS) $(LDFLAGS)
+vin: $(OBJS)
+	$(CC) -o vin $(OBJS) $(CFLAGS) $(LDFLAGS)
+
+%.o: %.c $(HEADERS)
+	$(CC) -c $< -o $@ $(CFLAGS)
 
 .PHONY: clean
 clean:
 	rm -f vin
+	rm -f *.o
