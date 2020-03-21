@@ -26,9 +26,14 @@ void wputchar(struct Window *win, struct Cursor *cur, int c) {
     cursor_advance(cur);
 }
 
-void handle_insert_mode(struct Window *win, struct Cursor *cur, enum Mode *mode, int c) {
+void handle_insert_mode(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c
+) {
     switch (c) {
-        case KEY_EXIT: /* escape key */
+        case 27: /* escape key */
             *mode = NORMAL;
             break;
 
@@ -37,7 +42,12 @@ void handle_insert_mode(struct Window *win, struct Cursor *cur, enum Mode *mode,
     }
 }
 
-void handle_normal_mode(struct Window *win, struct Cursor *cur, enum Mode *mode, int c) {
+void handle_normal_mode(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c
+) {
     switch (c) {
         case 'k':
             if (cur->y > 0) {
@@ -73,6 +83,10 @@ void handle_normal_mode(struct Window *win, struct Cursor *cur, enum Mode *mode,
             *mode = INSERT;
             break;
 
+        case '0':
+            cur->x = 0;
+            break;
+
         default:
             fprintf(stderr, "not an editor command: '%c'\n", c);
             break;
@@ -84,9 +98,7 @@ int main(int argc, char **argv) {
     FILE *fp = NULL;
     int c;
     struct Cursor cur;
-    enum Mode mode;
-
-    mode = NORMAL;
+    enum Mode mode = NORMAL;
 
     cur.x = 0;
     cur.y = 0;
