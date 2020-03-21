@@ -14,7 +14,9 @@ struct Window {
 
 enum Mode {
     NORMAL,
-    INSERT
+    INSERT,
+    EX,
+    QUIT
 };
 
 void cursor_advance(struct Cursor *cur) {
@@ -26,6 +28,32 @@ void wputchar(struct Window *win, struct Cursor *cur, int c) {
     cursor_advance(cur);
 }
 
+void handle_ex_mode(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c
+) {
+    wputchar(win, cur, c);
+    switch (c) {
+        case 27: /* escape key */
+            *mode = NORMAL;
+            break;
+
+        case '\n':
+            *mode = NORMAL;
+            break;
+
+        case 'q':
+            *mode = QUIT;
+            break;
+
+        default:
+            break;
+    }
+}
+
+
 void handle_insert_mode(
     struct Window *win,
     struct Cursor *cur,
@@ -35,6 +63,19 @@ void handle_insert_mode(
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
+            break;
+
+        case 127:
+            cur->x--;
+            wmove(win->curses_win, cur->y, cur->x);
+            wrefresh(win->curses_win);
+            waddch(win->curses_win, ' ');
+            break;
+
+        case '\n':
+            wputchar(win, cur, c);
+            cur->y++;
+            cur->x = 0;
             break;
 
         default:
@@ -87,24 +128,51 @@ void handle_normal_mode(
             cur->x = 0;
             break;
 
+        case ':':
+            *mode = EX;
+            cur->y = win->maxlines - 1;
+            cur->x = win->maxcols - 1;
+            wputchar(win, cur, c);
+            break;
+
         default:
-            fprintf(stderr, "not an editor command: '%c'\n", c);
             break;
     }
+}
+
+int event_loop(struct Window *win, struct Cursor *cur) {
+    int c;
+    enum Mode mode = NORMAL;
+    while ((c = wgetch(win->curses_win))) {
+        switch (mode) {
+            case NORMAL:
+                handle_normal_mode(win, cur, &mode, c);
+                break;
+
+            case INSERT:
+                handle_insert_mode(win, cur, &mode, c);
+                break;
+
+            case EX:
+                handle_ex_mode(win, cur, &mode, c);
+                break;
+
+            case QUIT:
+                return 0;
+        }
+        wmove(win->curses_win, cur->y, cur->x);
+        wrefresh(win->curses_win);
+    }
+    return 1;
 }
 
 int main(int argc, char **argv) {
     struct Window win;
     FILE *fp = NULL;
-    int c;
     struct Cursor cur;
-    enum Mode mode = NORMAL;
 
     cur.x = 0;
     cur.y = 0;
-
-    win.maxlines = LINES;
-    win.maxcols = COLS;
 
     /* setup curses */
     initscr();
@@ -113,31 +181,20 @@ int main(int argc, char **argv) {
 
     clear();
 
-    /*mvaddch(y[0], x[0], '0');*/
+    win.maxlines = LINES;
+    win.maxcols = COLS;
 
     if (argc == 2) {
         fp = fopen(argv[1], "rw");
     }
 
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
-    while ((c = wgetch(win.curses_win))) {
-        switch (mode) {
-            case NORMAL:
-                handle_normal_mode(&win, &cur, &mode, c);
-                break;
 
-            case INSERT:
-                handle_insert_mode(&win, &cur, &mode, c);
-                break;
-        }
-        wmove(win.curses_win, cur.y, cur.x);
-        wrefresh(win.curses_win);
-    }
+    event_loop(&win, &cur);
+
     clrtoeol();
     refresh();
     endwin();
-    return 0;
-
 
     if (fp) {
         fclose(fp);
