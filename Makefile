@@ -48,3 +48,4 @@ clean:
 	rm -f vin
 	rm -f *.o
 	rm -f core
+	rm -f a.out

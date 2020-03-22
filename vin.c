@@ -234,24 +234,50 @@ static void handle_normal_mode(
             break;
         }
 
+        case 'y': {
+            char next_cmd = wgetch(win->curses_win);
+            switch (next_cmd) {
+                case 'y':
+                    cur->clipboard = text_copy_line(cur->line);
+                    break;
+
+                default:
+                    break;
+            }
+            break;
+        }
+
+        case 'p': {
+            struct Text *line = text_copy_line(cur->clipboard);
+            text_insert_line(cur->line, line, cur->line->next);
+            break;
+        }
+
         case 'd':
             if (*(cmd->data) == 'd') {
-                struct Text *tmp;
-                cur->line->prev->next = cur->line->next;
-                if (cur->line->next) {
-                    cur->line->next->prev = cur->line->prev;
-                    tmp = cur->line;
-                    cur->line = cur->line->next;
+                if (cur->y > 0) {
+                    struct Text *tmp;
+                    cur->line->prev->next = cur->line->next;
+                    if (cur->line->next) {
+                        cur->line->next->prev = cur->line->prev;
+                        tmp = cur->line;
+                        cur->line = cur->line->next;
+                    } else {
+                        tmp = cur->line;
+                        cur->line = cur->line->prev;
+                        cur->line->next = NULL;
+                    }
+                    free(tmp->data);
+                    free(tmp);
+                    redraw_screen(win, cur, *mode);
+                    cmd->len = 0;
+                    memset(cmd, 0, 80);
+                    cur->y--;
                 } else {
-                    tmp = cur->line;
-                    cur->line = cur->line->prev;
-                    cur->line->next = NULL;
+                    handle_normal_mode(win, cur, mode, 'D', cmd);
+                    cur->y = 0;
+                    cur->x = 0;
                 }
-                free(tmp->data);
-                free(tmp);
-                redraw_screen(win, cur, *mode);
-                cmd->len = 0;
-                memset(cmd, 0, 80);
             } else {
                 command_add_char(cmd, c);
             }
@@ -405,6 +431,7 @@ int main(int argc, char **argv) {
     cur.y = 0;
     cur.line = text_new_line(NULL, NULL);
     cur.top_of_text = cur.line;
+    cur.clipboard = NULL;
 
     /* setup curses */
     initscr();

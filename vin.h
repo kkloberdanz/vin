@@ -11,6 +11,7 @@ struct Cursor {
     size_t old_y;
     struct Text *line;
     struct Text *top_of_text;
+    struct Text *clipboard;
 };
 
 struct Window {

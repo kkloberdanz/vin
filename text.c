@@ -110,3 +110,30 @@ struct Text *text_split_line(struct Text *line, size_t index) {
     line->len = strlen(line->data);
     return new_line;
 }
+
+struct Text *text_copy_line(struct Text *line) {
+    struct Text *new_line = malloc(sizeof(struct Text));
+    new_line->data = strdup(line->data);
+    new_line->len = strlen(line->data);
+    new_line->capacity = new_line->len + 1;
+    new_line->next = NULL;
+    new_line->prev = NULL;
+    return new_line;
+}
+
+void text_insert_line(
+    struct Text *prev,
+    struct Text *current,
+    struct Text *next
+) {
+    current->next = next;
+    current->prev = prev;
+
+    if (next) {
+        next->prev = current;
+    }
+
+    if (prev) {
+        prev->next = current;
+    }
+}
