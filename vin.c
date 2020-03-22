@@ -187,8 +187,15 @@ static void handle_normal_mode(
             if (cur->y > 0) {
                 if (cur->line->prev) {
                     cur->line = cur->line->prev;
-                    pos = cur->line->len - 2;
-                    cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
+
+                    if (cur->line->len > 2) {
+                        pos = cur->line->len - 2;
+                    } else {
+                        pos = 0;
+                    }
+
+                    cur->old_x = MAX(cur->x, cur->old_x);
+                    cur->x = MIN(cur->old_x, pos);
                     cur->y--;
                 }
             }
@@ -199,8 +206,15 @@ static void handle_normal_mode(
             if (cur->y < win->maxlines - 2) {
                 if (cur->line->next && *(cur->line->next->data)) {
                     cur->line = cur->line->next;
-                    pos = cur->line->len - 2;
-                    cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
+
+                    if (cur->line->len > 2) {
+                        pos = cur->line->len - 2;
+                    } else {
+                        pos = 0;
+                    }
+
+                    cur->old_x = MAX(cur->x, cur->old_x);
+                    cur->x = MIN(cur->old_x, pos);
                     cur->y++;
                 }
             }
@@ -209,12 +223,17 @@ static void handle_normal_mode(
         case ' ':
         case 'l':
             cur->line->len = strlen(cur->line->data);
-            pos = cur->line->len - 2;
+            if (cur->line->len > 2) {
+                pos = cur->line->len - 2;
+            } else {
+                pos = 0;
+            }
             if (cur->x < pos) {
                 if (cur->x < win->maxcols - 1) {
                     cur->x++;
                 }
             }
+            cur->old_x = cur->x;
             break;
 
         case 'h':
@@ -307,10 +326,17 @@ static void handle_normal_mode(
         }
 
         case '$':
-        case 'E':
+        case 'E': {
+            size_t pos;
             cur->line->len = strlen(cur->line->data);
-            cur->x = cur->line->len - 2;
+            if (cur->line->len > 2) {
+                pos = cur->line->len - 2;
+            } else {
+                pos = 0;
+            }
+            cur->x = pos;
             break;
+        }
 
         case 'o': {
             struct Text *new_line = text_make_line();
@@ -365,6 +391,7 @@ static void handle_normal_mode(
             break;
 
         case '0':
+            cur->old_x = 0;
             cur->x = 0;
             break;
 
