@@ -90,6 +90,7 @@ static void handle_ex_mode(
     int c
 ) {
     wputchar(win, cur, c);
+    /* TODO: put this in a while loop to read in commands */
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
@@ -339,30 +340,18 @@ static void handle_normal_mode(
 
         case 'i':
             *mode = INSERT;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "-- INSERT --");
             wmove(win->curses_win, cur->y, cur->x);
             redraw_screen(win, cur, *mode);
             break;
 
         case 'a':
             *mode = INSERT;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "-- INSERT --");
             cursor_advance(cur);
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
         case 'A':
             *mode = INSERT;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "-- INSERT --");
             cur->x = cur->line->len - 1;
             break;
 
