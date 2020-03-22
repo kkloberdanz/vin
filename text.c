@@ -137,3 +137,12 @@ void text_insert_line(
         prev->next = current;
     }
 }
+
+size_t text_total_lines(struct Text *top_line) {
+    struct Text *tmp;
+    size_t i = 0;
+    for (tmp = top_line; tmp; tmp = tmp->next) {
+        i++;
+    }
+    return i;
+}

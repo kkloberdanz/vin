@@ -53,8 +53,13 @@ static void redraw_screen(
 ) {
     struct Text *line;
     size_t i;
+    char msg[80];
+    cur->total_lines = text_total_lines(cur->top_of_text);
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {
+        if (i >= win->maxlines - 1) {
+            break;
+        }
         wmove(win->curses_win, i, 0);
         waddstr(win->curses_win, line->data);
     }
@@ -65,12 +70,16 @@ static void redraw_screen(
             waddstr(win->curses_win, "                                      ");
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
-            wmove(win->curses_win, cur->y, cur->x);
             break;
 
         default:
             break;
     }
+
+    wmove(win->curses_win, win->maxlines - 1, 55);
+    sprintf(msg, "%lu - %lu", cur->x + 1, cur->y + 1);
+    waddstr(win->curses_win, msg);
+    wmove(win->curses_win, cur->y, cur->x);
 }
 
 static void handle_ex_mode(
@@ -173,11 +182,11 @@ static void handle_normal_mode(
     char msg_buf[80];
     switch (c) {
         case 'k':
-            if (cur->line->prev) {
-                cur->line = cur->line->prev;
-                pos = cur->line->len - 2;
-                cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
-                if (cur->y > 0) {
+            if (cur->y > 0) {
+                if (cur->line->prev) {
+                    cur->line = cur->line->prev;
+                    pos = cur->line->len - 2;
+                    cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
                     cur->y--;
                 }
             }
@@ -185,11 +194,11 @@ static void handle_normal_mode(
 
         case '\n':
         case 'j':
-            if (cur->line->next && *(cur->line->next->data)) {
-                cur->line = cur->line->next;
-                pos = cur->line->len - 2;
-                cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
-                if (cur->y < win->maxlines - 1) {
+            if (cur->y < win->maxlines - 2) {
+                if (cur->line->next && *(cur->line->next->data)) {
+                    cur->line = cur->line->next;
+                    pos = cur->line->len - 2;
+                    cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
                     cur->y++;
                 }
             }
@@ -197,6 +206,7 @@ static void handle_normal_mode(
 
         case ' ':
         case 'l':
+            cur->line->len = strlen(cur->line->data);
             pos = cur->line->len - 2;
             if (cur->x < pos) {
                 if (cur->x < win->maxcols - 1) {
@@ -297,6 +307,7 @@ static void handle_normal_mode(
 
         case '$':
         case 'E':
+            cur->line->len = strlen(cur->line->data);
             cur->x = cur->line->len - 2;
             break;
 
@@ -312,6 +323,20 @@ static void handle_normal_mode(
                 wmove(win->curses_win, cur->y, cur->x);
             }
             /* fallthrough */
+
+        case 'g': {
+            char next_c = wgetch(win->curses_win);
+            switch (next_c) {
+                case 'g':
+                    cur->x = 0;
+                    cur->y = 0;
+                    break;
+
+                default:
+                    break;
+            }
+            break;
+        }
 
         case 'i':
             *mode = INSERT;
@@ -431,6 +456,7 @@ int main(int argc, char **argv) {
 
     cur.x = 0;
     cur.y = 0;
+    cur.total_lines = 0;
     cur.line = text_new_line(NULL, NULL);
     cur.top_of_text = cur.line;
     cur.clipboard = NULL;
@@ -450,6 +476,7 @@ int main(int argc, char **argv) {
         fp = fopen(argv[1], "r");
         if (fp) {
             text_read_from_file(cur.line, fp);
+            cur.total_lines = text_total_lines(cur.top_of_text);
             fclose(fp);
         }
     }

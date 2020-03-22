@@ -65,4 +65,6 @@ void text_insert_line(
     struct Text *next
 );
 
+size_t text_total_lines(struct Text *top_line);
+
 #endif /* TEXT_H */

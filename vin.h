@@ -9,6 +9,7 @@ struct Cursor {
     size_t y;
     size_t old_x;
     size_t old_y;
+    size_t total_lines;
     struct Text *line;
     struct Text *top_of_text;
     struct Text *clipboard;
