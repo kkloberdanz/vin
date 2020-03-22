@@ -43,13 +43,30 @@ static void wputchar(struct Window *win, struct Cursor *cur, int c) {
     cursor_advance(cur);
 }
 
-static void redraw_screen(struct Window *win, struct Cursor *cur) {
+static void redraw_screen(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode mode
+) {
     struct Text *line;
     size_t i;
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {
         wmove(win->curses_win, i, 0);
         waddstr(win->curses_win, line->data);
+    }
+
+    switch (mode) {
+        case INSERT:
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "                                      ");
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "-- INSERT --");
+            wmove(win->curses_win, cur->y, cur->x);
+            break;
+
+        default:
+            break;
     }
 }
 
@@ -122,17 +139,15 @@ static void handle_insert_mode(
             cur->y++;
             cur->line = text_split_line(cur->line, cur->x);
             cur->x = 0;
-            redraw_screen(win, cur);
+            redraw_screen(win, cur, *mode);
             break;
 
         case '\t':
             for (i = 0; i < 4; i++) {
                 text_insert_char(cur->line, cur->x, ' ');
                 cursor_advance(cur);
-                wmove(win->curses_win, cur->y, 0);
-                waddstr(win->curses_win, cur->line->data);
-                wmove(win->curses_win, cur->y, cur->x);
             }
+            redraw_screen(win, cur, *mode);
             break;
 
         default:
@@ -158,7 +173,7 @@ static void handle_normal_mode(
             if (cur->line->prev) {
                 cur->line = cur->line->prev;
                 pos = cur->line->len - 2;
-                cur->x = (pos > cur->x) ? 0 : MIN(cur->x, pos);
+                cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
                 if (cur->y > 0) {
                     cur->y--;
                 }
@@ -170,7 +185,7 @@ static void handle_normal_mode(
             if (cur->line->next && *(cur->line->next->data)) {
                 cur->line = cur->line->next;
                 pos = cur->line->len - 2;
-                cur->x = (pos > cur->x) ? 0 : MIN(cur->x, pos);
+                cur->x = (pos >= cur->x) ? 0 : MIN(cur->x, pos);
                 if (cur->y < win->maxlines - 1) {
                     cur->y++;
                 }
@@ -197,7 +212,7 @@ static void handle_normal_mode(
             if ((cur->x < cur->line->len) 
                     && (cur->line->data[cur->x] != '\n')) {
                 text_shift_left(cur->line, cur->x);
-                redraw_screen(win, cur);
+                redraw_screen(win, cur, *mode);
             }
             break;
 
@@ -216,7 +231,7 @@ static void handle_normal_mode(
                 }
                 free(tmp->data);
                 free(tmp);
-                redraw_screen(win, cur);
+                redraw_screen(win, cur, *mode);
                 cmd->len = 0;
                 memset(cmd, 0, 80);
             } else {
@@ -230,7 +245,7 @@ static void handle_normal_mode(
             cur->line->data[cur->x] = '\n';
             cur->x--;
             cur->line->len = strlen(cur->line->data);
-            redraw_screen(win, cur);
+            redraw_screen(win, cur, *mode);
             break;
         }
 
@@ -259,7 +274,7 @@ static void handle_normal_mode(
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             wmove(win->curses_win, cur->y, cur->x);
-            redraw_screen(win, cur);
+            redraw_screen(win, cur, *mode);
             break;
 
         case 'a':
@@ -298,7 +313,7 @@ static void handle_normal_mode(
             break;
 
         case '\f':
-            redraw_screen(win, cur);
+            redraw_screen(win, cur, *mode);
             break;
 
         default:
@@ -324,7 +339,7 @@ static int event_loop(
     int c;
     enum Mode mode = NORMAL;
     struct Command cmd;
-    redraw_screen(win, cur);
+    redraw_screen(win, cur, mode);
     cur->x = 0;
     cur->y = 0;
     cmd.len = 0;
@@ -344,6 +359,15 @@ static int event_loop(
 
             case QUIT:
                 return 0;
+        }
+
+        switch (mode) {
+            case NORMAL:
+            case INSERT:
+                redraw_screen(win, cur, mode);
+
+            default:
+                break;
         }
         getmaxyx(win->curses_win, win->maxlines, win->maxcols);
         wmove(win->curses_win, cur->y, cur->x);
