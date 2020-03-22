@@ -53,13 +53,15 @@ static void redraw_screen(
 ) {
     struct Text *line;
     size_t i;
-    char msg[80];
+    char msg[80] = {0};
+    memset(msg, ' ', 79);
     cur->total_lines = text_total_lines(cur->top_of_text);
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {
         if (i >= win->maxlines - 1) {
             break;
         }
+        line->len = strlen(line->data);
         wmove(win->curses_win, i, 0);
         waddstr(win->curses_win, line->data);
     }
@@ -67,7 +69,7 @@ static void redraw_screen(
     switch (mode) {
         case INSERT:
             wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
+            waddstr(win->curses_win, msg);
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             break;
@@ -80,6 +82,7 @@ static void redraw_screen(
     sprintf(msg, "%lu - %lu", cur->x + 1, cur->y + 1);
     waddstr(win->curses_win, msg);
     wmove(win->curses_win, cur->y, cur->x);
+    wrefresh(win->curses_win);
 }
 
 static void handle_ex_mode(
@@ -133,8 +136,6 @@ static void handle_insert_mode(
         case 27: /* escape key */
             *mode = NORMAL;
             cur->x--;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "            ");
             break;
 
         case 127: /* backspace key */
@@ -328,8 +329,6 @@ static void handle_normal_mode(
             char next_c = wgetch(win->curses_win);
             switch (next_c) {
                 case 'g':
-                    cur->x = 0;
-                    cur->y = 0;
                     break;
 
                 default:
