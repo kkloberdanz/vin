@@ -2,4 +2,5 @@
 *.swo
 vin
 *.o
+*.zip
 testdata/

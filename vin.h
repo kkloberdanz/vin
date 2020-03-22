@@ -21,6 +21,10 @@
 #include <stdio.h>
 #include <curses.h>
 
+#ifndef SIZE_MAX
+#define SIZE_MAX sizeof(size_t)
+#endif
+
 struct Cursor {
     size_t x;
     size_t y;
