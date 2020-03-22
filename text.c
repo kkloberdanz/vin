@@ -25,7 +25,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
 char *strdup(const char *s);
 
-struct Text *text_new_line(struct Text *prev, struct Text *next) {
+static struct Text *text_new_line(struct Text *prev, struct Text *next) {
     struct Text *line = malloc(sizeof(struct Text));
     line->prev = prev;
     line->next = next;

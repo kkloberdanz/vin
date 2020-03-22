@@ -29,9 +29,9 @@ struct Text {
 };
 
 /**
- * Insert a new line into the list of text
+ * create a new empty line
  */
-struct Text *text_new_line(struct Text *prev, struct Text *next);
+struct Text *text_make_line();
 
 /**
  * Inserts a single character to the end of the current line
@@ -83,10 +83,5 @@ void text_insert_line(
 );
 
 size_t text_total_lines(struct Text *top_line);
-
-/**
- * create a new empty line
- */
-struct Text *text_make_line();
 
 #endif /* TEXT_H */

@@ -28,6 +28,19 @@ OBJS = $(patsubst %.c,%.o,$(SRC))
 
 all: vin
 
+.PHONY: small
+small: OPTIM := -Os
+small: all
+	strip \
+		-S \
+		--strip-unneeded \
+		--remove-section=.note.gnu.gold-version \
+		--remove-section=.comment \
+		--remove-section=.note \
+		--remove-section=.note.gnu.build-id \
+		--remove-section=.note.ABI-tag \
+		vin
+
 debug: OPTIM := -ggdb3 -O0 -Werror
 debug: all
 

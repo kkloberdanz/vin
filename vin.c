@@ -518,7 +518,7 @@ int main(int argc, char **argv) {
     cur.old_x = 0;
     cur.y = 0;
     cur.old_y = 0;
-    cur.line = text_new_line(NULL, NULL);
+    cur.line = text_make_line();
     cur.top_of_text = cur.line;
     cur.clipboard = NULL;
     cur.line_no = 1;
