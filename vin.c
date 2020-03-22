@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <curses.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "vin.h"
 #include "text.h"
@@ -209,12 +210,29 @@ static void handle_normal_mode(
             break;
 
         case 'x':
-            if ((cur->x < cur->line->len) 
+            if ((cur->x < cur->line->len)
                     && (cur->line->data[cur->x] != '\n')) {
                 text_shift_left(cur->line, cur->x);
                 redraw_screen(win, cur, *mode);
             }
             break;
+
+        case 'r':
+            if ((cur->x < cur->line->len)
+                    && (cur->line->data[cur->x] != '\n')) {
+                cur->line->data[cur->x] = wgetch(win->curses_win);
+                redraw_screen(win, cur, *mode);
+            }
+            break;
+
+        case '~': {
+            char *under_cursor = &cur->line->data[cur->x];
+            if (isalpha(*under_cursor)) {
+                *under_cursor ^= 0x20;
+            }
+            cursor_advance(cur);
+            break;
+        }
 
         case 'd':
             if (*(cmd->data) == 'd') {
