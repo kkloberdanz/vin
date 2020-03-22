@@ -21,6 +21,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
+#include <limits.h>
 
 #include "vin.h"
 #include "text.h"
@@ -60,6 +61,7 @@ static void redraw_screen(
 ) {
     struct Text *line;
     size_t i;
+    size_t num_lines_in_screen;
     char msg[80] = {0};
     memset(msg, ' ', 79);
     wclear(win->curses_win);
@@ -67,9 +69,9 @@ static void redraw_screen(
 
     /* set line to scroll to get top of screen */
     for (
-        i = win->maxlines - 2, line = cur->line;
-        line->prev && (i > 0);
-        line = line->prev, i--
+        num_lines_in_screen = win->maxlines - 2, line = cur->line;
+        line->prev && (num_lines_in_screen > 0);
+        line = line->prev, num_lines_in_screen--
     );
 
     for (i = 0; line; line = line->next, i++) {
@@ -199,46 +201,38 @@ static void handle_normal_mode(
     char msg_buf[80];
     switch (c) {
         case 'k':
-            if (cur->y > 0) {
-                if (cur->line->prev) {
-                    cur->line = cur->line->prev;
+            if (cur->line->prev) {
+                cur->line_no--;
+                cur->line = cur->line->prev;
+                if (cur->line->len > 2) {
+                    pos = cur->line->len - 2;
+                } else {
+                    pos = 0;
+                }
 
-                    if (cur->line->len > 2) {
-                        pos = cur->line->len - 2;
-                    } else {
-                        pos = 0;
-                    }
-
-                    cur->old_x = MAX(cur->x, cur->old_x);
-                    cur->x = MIN(cur->old_x, pos);
+                cur->old_x = MAX(cur->x, cur->old_x);
+                cur->x = MIN(cur->old_x, pos);
+                if (cur->y > 0) {
                     cur->y--;
-                    cur->line_no--;
                 }
             }
             break;
 
         case '\n':
         case 'j':
-            if (cur->y < win->maxlines - 2) {
-                if (cur->line->next && *(cur->line->next->data)) {
-                    cur->line = cur->line->next;
-
-                    if (cur->line->len > 2) {
-                        pos = cur->line->len - 2;
-                    } else {
-                        pos = 0;
-                    }
-
-                    cur->old_x = MAX(cur->x, cur->old_x);
-                    cur->x = MIN(cur->old_x, pos);
-                    cur->y++;
-                    cur->line_no++;
+            if (cur->line->next) {
+                cur->line_no++;
+                cur->line = cur->line->next;
+                if (cur->line->len > 2) {
+                    pos = cur->line->len - 2;
+                } else {
+                    pos = 0;
                 }
-            } else {
-                /* TODO: scroll screen down */
-                if (cur->line->next) {
-                    cur->line_no++;
-                    cur->line = cur->line->next;
+
+                cur->old_x = MAX(cur->x, cur->old_x);
+                cur->x = MIN(cur->old_x, pos);
+                if (cur->y < win->maxlines - 2) {
+                    cur->y++;
                 }
             }
             break;
@@ -363,6 +357,7 @@ static void handle_normal_mode(
             } else {
                 pos = 0;
             }
+            cur->old_x = SIZE_MAX;
             cur->x = pos;
             break;
         }
