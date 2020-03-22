@@ -338,13 +338,13 @@ static void handle_normal_mode(
             redraw_screen(win, cur, *mode);
             break;
 
-        /*
         case 'g': {
             char next_c = wgetch(win->curses_win);
             switch (next_c) {
                 case 'g':
                     cur->x = 0;
                     cur->y = 0;
+                    cur->line = cur->top_of_text;
                     break;
 
                 default:
@@ -352,8 +352,6 @@ static void handle_normal_mode(
             }
             break;
         }
-        */
-
 
         case 'a':
             *mode = INSERT;
