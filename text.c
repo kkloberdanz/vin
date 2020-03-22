@@ -21,8 +21,10 @@ struct Text *text_new_line(struct Text *prev, struct Text *next) {
         next->prev = line;
     }
 
-    line->data = calloc(2, sizeof(char));
-    line->len = 0;
+    line->data = malloc(2 * sizeof(char));
+    line->data[0] = '\n';
+    line->data[1] = '\0';
+    line->len = 2;
     line->capacity = 1;
     return line;
 }
@@ -93,5 +95,9 @@ void text_read_from_file(struct Text *line, FILE *fp) {
         line = line->next;
     }
     free(line_of_input);
+    line = line->prev;
+    free(line->next->data);
+    free(line->next);
+    line->next = NULL;
     fseek(fp, tell, SEEK_SET);
 }

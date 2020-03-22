@@ -18,9 +18,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <curses.h>
+#include <string.h>
 
 #include "vin.h"
 #include "text.h"
+#include "command.h"
+
+#define MIN(A, B) ((A) < (B) ? (A) : (B))
+
+#define FLASH_MSG(MSG) \
+    do { \
+        waddstr(win->curses_win, "                                      "); \
+        wmove(win->curses_win, win->maxlines - 1, 0); \
+        waddstr(win->curses_win, (MSG)); \
+        wmove(win->curses_win, cur->y, cur->x); \
+    } while (0) \
 
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
@@ -53,7 +65,7 @@ static void handle_ex_mode(
         case 27: /* escape key */
             *mode = NORMAL;
             wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "            ");
+            waddstr(win->curses_win, "                                      ");
             cur->x = cur->old_x;
             cur->y = cur->old_y;
             break;
@@ -61,7 +73,7 @@ static void handle_ex_mode(
         case '\n':
             *mode = NORMAL;
             wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "            ");
+            waddstr(win->curses_win, "                                      ");
             cur->x = cur->old_x;
             cur->y = cur->old_y;
             break;
@@ -107,7 +119,6 @@ static void handle_insert_mode(
             break;
 
         case '\n':
-            text_push_char(cur->line, '\n');
             cur->y++;
             cur->x = 0;
             cur->line = text_new_line(cur->line, cur->line->next);
@@ -137,15 +148,17 @@ static void handle_normal_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
-    int c
+    int c,
+    struct Command *cmd
 ) {
     size_t pos;
+    char msg_buf[80];
     switch (c) {
         case 'k':
             if (cur->line->prev) {
                 cur->line = cur->line->prev;
                 pos = cur->line->len - 2;
-                cur->x = (pos < cur->x) ? pos : cur->x;
+                cur->x = (pos > cur->x) ? 0 : MIN(cur->x, pos);
                 if (cur->y > 0) {
                     cur->y--;
                 }
@@ -154,10 +167,11 @@ static void handle_normal_mode(
 
         case '\n':
         case 'j':
-            if (cur->line->next) {
+            if (cur->line->next && *(cur->line->next->data)) {
                 cur->line = cur->line->next;
                 pos = cur->line->len - 2;
-                cur->x = (pos < cur->x) ? pos : cur->x;
+                cur->x = (pos > cur->x) ? 0 : MIN(cur->x, pos);
+                sprintf(msg_buf, "%lu %lu\n", cur->x, cur->y);
                 if (cur->y < win->maxlines - 1) {
                     cur->y++;
                 }
@@ -166,7 +180,8 @@ static void handle_normal_mode(
 
         case ' ':
         case 'l':
-            if (cur->x < cur->line->len - 2) {
+            pos = cur->line->len - 2;
+            if (cur->x < pos) {
                 if (cur->x < win->maxcols - 1) {
                     cur->x++;
                 }
@@ -188,7 +203,26 @@ static void handle_normal_mode(
             break;
 
         case 'd':
-            /* TODO */
+            if (*(cmd->data) == 'd') {
+                struct Text *tmp;
+                cur->line->prev->next = cur->line->next;
+                if (cur->line->next) {
+                    cur->line->next->prev = cur->line->prev;
+                    tmp = cur->line;
+                    cur->line = cur->line->next;
+                } else {
+                    tmp = cur->line;
+                    cur->line = cur->line->prev;
+                    cur->line->next = NULL;
+                }
+                free(tmp->data);
+                free(tmp);
+                redraw_screen(win, cur);
+                cmd->len = 0;
+                memset(cmd, 0, 80);
+            } else {
+                command_add_char(cmd, c);
+            }
             break;
 
         case '$':
@@ -213,12 +247,16 @@ static void handle_normal_mode(
         case 'i':
             *mode = INSERT;
             wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "                                      ");
+            wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
         case 'a':
             *mode = INSERT;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "                                      ");
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             cursor_advance(cur);
@@ -227,6 +265,8 @@ static void handle_normal_mode(
 
         case 'A':
             *mode = INSERT;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "                                      ");
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             cur->x = cur->line->len;
@@ -244,6 +284,8 @@ static void handle_normal_mode(
             cur->x = 0;
             cur->y = win->maxlines - 1;
             wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "                                      ");
+            wmove(win->curses_win, win->maxlines - 1, 0);
             wputchar(win, cur, c);
             break;
 
@@ -252,6 +294,16 @@ static void handle_normal_mode(
             break;
 
         default:
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            switch (c) {
+                case 27:
+                    break;
+
+                default:
+                    sprintf(msg_buf, "not an editor command: %c", c);
+                    waddstr(win->curses_win, msg_buf);
+                    wmove(win->curses_win, cur->y, cur->x);
+            }
             break;
     }
 }
@@ -259,11 +311,15 @@ static void handle_normal_mode(
 static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
     int c;
     enum Mode mode = NORMAL;
+    struct Command cmd;
     redraw_screen(win, cur);
+    cur->x = 0;
+    cur->y = 0;
+    cmd.len = 0;
     while ((c = wgetch(win->curses_win))) {
         switch (mode) {
             case NORMAL:
-                handle_normal_mode(win, cur, &mode, c);
+                handle_normal_mode(win, cur, &mode, c, &cmd);
                 break;
 
             case INSERT:
