@@ -36,4 +36,9 @@ void text_backspace(struct Text *line, size_t index);
  */
 void text_insert_char(struct Text *line, size_t index, char c);
 
+/**
+ * shifts text to the left starting from index
+ */
+void text_shift_left(struct Text *line, size_t index);
+
 #endif /* TEXT_H */

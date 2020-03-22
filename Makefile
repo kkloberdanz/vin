@@ -28,7 +28,7 @@ OBJS = $(patsubst %.c,%.o,$(SRC))
 
 all: vin
 
-debug: OPTIM := -ggdb3 -O0
+debug: OPTIM := -ggdb3 -O0 -Werror
 debug: all
 
 vin: $(OBJS)

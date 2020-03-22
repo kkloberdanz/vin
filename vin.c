@@ -51,6 +51,16 @@ static void wputchar(struct Window *win, struct Cursor *cur, int c) {
     cursor_advance(cur);
 }
 
+static void redraw_screen(struct Window *win, struct Cursor *cur) {
+    struct Text *line;
+    size_t i;
+    wclear(win->curses_win);
+    for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {
+        wmove(win->curses_win, i, 0);
+        waddstr(win->curses_win, line->data);
+    }
+}
+
 static void handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
@@ -96,6 +106,7 @@ static void handle_insert_mode(
     enum Mode *mode,
     int c
 ) {
+    int i;
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
@@ -106,6 +117,9 @@ static void handle_insert_mode(
 
         case 127: /* backspace key */
             cur->x--;
+            if (cur->line && cur->line->len > 0) {
+                cur->line->len--;
+            }
             wmove(win->curses_win, cur->y, cur->x);
             wrefresh(win->curses_win);
             waddch(win->curses_win, ' ');
@@ -113,10 +127,19 @@ static void handle_insert_mode(
             break;
 
         case '\n':
-            wputchar(win, cur, c);
             cur->y++;
             cur->x = 0;
             cur->line = text_new_line(cur->line, cur->line->next);
+            break;
+
+        case '\t':
+            for (i = 0; i < 4; i++) {
+                text_insert_char(cur->line, cur->x, ' ');
+                cursor_advance(cur);
+                wmove(win->curses_win, cur->y, 0);
+                waddstr(win->curses_win, cur->line->data);
+                wmove(win->curses_win, cur->y, cur->x);
+            }
             break;
 
         default:
@@ -138,6 +161,7 @@ static void handle_normal_mode(
         case 'k':
             if (cur->line->prev) {
                 cur->line = cur->line->prev;
+                cur->x = cur->line->len;
                 if (cur->y > 0) {
                     cur->y--;
                 }
@@ -148,6 +172,7 @@ static void handle_normal_mode(
         case 'j':
             if (cur->line->next) {
                 cur->line = cur->line->next;
+                cur->x = cur->line->len;
                 if (cur->y < win->maxlines - 1) {
                     cur->y++;
                 }
@@ -170,7 +195,14 @@ static void handle_normal_mode(
             break;
 
         case 'x':
-            wputchar(win, cur, ' ');
+            if (cur->x < cur->line->len) {
+                text_shift_left(cur->line, cur->x);
+                redraw_screen(win, cur);
+            }
+            break;
+
+        case 'd':
+            /* TODO */
             break;
 
         case 'o':
@@ -178,12 +210,34 @@ static void handle_normal_mode(
             cur->x = 0;
 
             cur->line = text_new_line(cur->line, cur->line->next);
+            if (cur->line->next) {
+                wmove(win->curses_win, cur->y + 1, 0);
+                waddstr(win->curses_win, cur->line->next->data);
+                wmove(win->curses_win, cur->y, cur->x);
+            }
             /* fallthrough */
 
         case 'i':
             *mode = INSERT;
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
+            wmove(win->curses_win, cur->y, cur->x);
+            break;
+
+        case 'a':
+            *mode = INSERT;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "-- INSERT --");
+            cursor_advance(cur);
+            wmove(win->curses_win, cur->y, cur->x);
+            break;
+
+        case 'A':
+            *mode = INSERT;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, "-- INSERT --");
+            cur->x = cur->line->len;
+            wmove(win->curses_win, cur->y, cur->x);
             break;
 
         case '0':
@@ -198,6 +252,10 @@ static void handle_normal_mode(
             cur->y = win->maxlines - 1;
             wmove(win->curses_win, win->maxlines - 1, 0);
             wputchar(win, cur, c);
+            break;
+
+        case '\f':
+            redraw_screen(win, cur);
             break;
 
         default:

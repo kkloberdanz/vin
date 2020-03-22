@@ -36,6 +36,7 @@ void text_write(struct Text *line, FILE *fp) {
         return;
     }
     fseek(fp, 0, SEEK_SET);
+    fp = freopen(NULL, "w", fp);
     for (; line; line = line->next) {
         fprintf(fp, "%s\n", line->data);
     }
@@ -62,4 +63,14 @@ void text_insert_char(struct Text *line, size_t index, char c) {
         line->data[i] = line->data[i - 1];
     }
     line->data[index] = c;
+}
+
+void text_shift_left(struct Text *line, size_t index) {
+    size_t i;
+    line->data[line->len] = '\0';
+    line->len--;
+
+    for (i = index; line->data[i] != '\0'; i++) {
+        line->data[i] = line->data[i + 1];
+    }
 }
