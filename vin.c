@@ -107,9 +107,11 @@ static void handle_insert_mode(
             break;
 
         case '\n':
+            text_push_char(cur->line, '\n');
             cur->y++;
             cur->x = 0;
             cur->line = text_new_line(cur->line, cur->line->next);
+            redraw_screen(win, cur);
             break;
 
         case '\t':
@@ -137,11 +139,13 @@ static void handle_normal_mode(
     enum Mode *mode,
     int c
 ) {
+    size_t pos;
     switch (c) {
         case 'k':
             if (cur->line->prev) {
                 cur->line = cur->line->prev;
-                cur->x = cur->line->len;
+                pos = cur->line->len - 2;
+                cur->x = (pos < cur->x) ? pos : cur->x;
                 if (cur->y > 0) {
                     cur->y--;
                 }
@@ -152,7 +156,8 @@ static void handle_normal_mode(
         case 'j':
             if (cur->line->next) {
                 cur->line = cur->line->next;
-                cur->x = cur->line->len;
+                pos = cur->line->len - 2;
+                cur->x = (pos < cur->x) ? pos : cur->x;
                 if (cur->y < win->maxlines - 1) {
                     cur->y++;
                 }
@@ -161,7 +166,7 @@ static void handle_normal_mode(
 
         case ' ':
         case 'l':
-            if (cur->x < cur->line->len - 1) {
+            if (cur->x < cur->line->len - 2) {
                 if (cur->x < win->maxcols - 1) {
                     cur->x++;
                 }
@@ -175,7 +180,8 @@ static void handle_normal_mode(
             break;
 
         case 'x':
-            if (cur->x < cur->line->len) {
+            if ((cur->x < cur->line->len) 
+                    && (cur->line->data[cur->x] != '\n')) {
                 text_shift_left(cur->line, cur->x);
                 redraw_screen(win, cur);
             }
@@ -185,16 +191,23 @@ static void handle_normal_mode(
             /* TODO */
             break;
 
+        case '$':
+        case 'E':
+            cur->x = cur->line->len - 2;
+            break;
+
         case 'o':
             cur->y++;
             cur->x = 0;
 
             cur->line = text_new_line(cur->line, cur->line->next);
+            text_push_char(cur->line, '\n');
             if (cur->line->next) {
                 wmove(win->curses_win, cur->y + 1, 0);
                 waddstr(win->curses_win, cur->line->next->data);
                 wmove(win->curses_win, cur->y, cur->x);
             }
+            redraw_screen(win, cur);
             /* fallthrough */
 
         case 'i':

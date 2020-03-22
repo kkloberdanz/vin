@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 #include "text.h"
@@ -43,7 +44,7 @@ void text_write(struct Text *line, FILE *fp) {
     fseek(fp, 0, SEEK_SET);
     fp = freopen(NULL, "w", fp);
     for (; line; line = line->next) {
-        fprintf(fp, "%s\n", line->data);
+        fprintf(fp, "%s", line->data);
     }
     fflush(fp);
 }
@@ -87,6 +88,8 @@ void text_read_from_file(struct Text *line, FILE *fp) {
     while ((getline(&line_of_input, &n, fp) != -1)) {
         text_new_line(line, NULL);
         line->data = strdup(line_of_input);
+        line->len = strlen(line->data);
+        line->capacity = line->len;
         line = line->next;
     }
     free(line_of_input);
