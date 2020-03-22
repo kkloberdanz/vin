@@ -284,7 +284,6 @@ static void handle_normal_mode(
                     redraw_screen(win, cur, *mode);
                     cmd->len = 0;
                     memset(cmd, 0, 80);
-                    cur->y--;
                 } else {
                     handle_normal_mode(win, cur, mode, 'D', cmd);
                     cur->y = 0;
