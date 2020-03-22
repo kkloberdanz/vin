@@ -67,4 +67,9 @@ void text_insert_line(
 
 size_t text_total_lines(struct Text *top_line);
 
+/**
+ * create a new empty line
+ */
+struct Text *text_make_line();
+
 #endif /* TEXT_H */

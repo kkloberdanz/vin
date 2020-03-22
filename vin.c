@@ -312,28 +312,23 @@ static void handle_normal_mode(
             cur->x = cur->line->len - 2;
             break;
 
-        case 'o':
+        case 'o': {
+            struct Text *new_line = text_make_line();
             cur->y++;
             cur->x = 0;
 
-            cur->line = text_new_line(cur->line, cur->line->next);
+            text_insert_line(cur->line, new_line, cur->line->next);
+
+            cur->line = cur->line->next;
             text_push_char(cur->line, '\n');
-            if (cur->line->next) {
-                wmove(win->curses_win, cur->y + 1, 0);
-                waddstr(win->curses_win, cur->line->next->data);
-                wmove(win->curses_win, cur->y, cur->x);
-            }
-            /* fallthrough */
 
-        case 'g': {
-            char next_c = wgetch(win->curses_win);
-            switch (next_c) {
-                case 'g':
-                    break;
+            wmove(win->curses_win, cur->y + 1, 0);
+            waddstr(win->curses_win, cur->line->next->data);
+            wmove(win->curses_win, cur->y, cur->x);
 
-                default:
-                    break;
-            }
+            *mode = INSERT;
+            wmove(win->curses_win, cur->y, cur->x);
+            redraw_screen(win, cur, *mode);
             break;
         }
 
@@ -342,6 +337,23 @@ static void handle_normal_mode(
             wmove(win->curses_win, cur->y, cur->x);
             redraw_screen(win, cur, *mode);
             break;
+
+        /*
+        case 'g': {
+            char next_c = wgetch(win->curses_win);
+            switch (next_c) {
+                case 'g':
+                    cur->x = 0;
+                    cur->y = 0;
+                    break;
+
+                default:
+                    break;
+            }
+            break;
+        }
+        */
+
 
         case 'a':
             *mode = INSERT;

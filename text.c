@@ -29,6 +29,19 @@ struct Text *text_new_line(struct Text *prev, struct Text *next) {
     return line;
 }
 
+struct Text *text_make_line() {
+    struct Text *line = malloc(sizeof(struct Text));
+    line->next = NULL;
+    line->prev = NULL;
+
+    line->data = malloc(2 * sizeof(char));
+    line->data[0] = '\n';
+    line->data[1] = '\0';
+    line->len = 0;
+    line->capacity = 1;
+    return line;
+}
+
 void text_push_char(struct Text *line, char c) {
     if (line->len >= line->capacity) {
         line->capacity *= 2;
@@ -45,7 +58,11 @@ void text_write(struct Text *line, char *filename) {
     }
     fp = fopen(filename, "w");
     for (; line; line = line->next) {
-        fprintf(fp, "%s", line->data);
+        int i = 0;
+        for (i = 0; line->data[i] != '\0' && line->data[i] != '\n'; i++) {
+            fputc(line->data[i], fp);
+        }
+        fputc('\n', fp);
     }
     fflush(fp);
     fclose(fp);
@@ -69,7 +86,7 @@ void text_insert_char(struct Text *line, size_t index, char c) {
     for (i = line->len - 1; i > index; i--) {
         line->data[i] = line->data[i - 1];
     }
-    memset(line->data + line->len, 0, line->capacity - line->len);
+    line->data[line->capacity] = '\0';
     line->data[index] = c;
 }
 
