@@ -27,6 +27,8 @@
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+
 #define FLASH_MSG(MSG) \
     do { \
         waddstr(win->curses_win, "                                      "); \

@@ -64,4 +64,5 @@ void text_insert_line(
     struct Text *current,
     struct Text *next
 );
+
 #endif /* TEXT_H */
