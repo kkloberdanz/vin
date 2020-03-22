@@ -20,10 +20,13 @@
 #include <curses.h>
 #include <string.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include "vin.h"
 #include "text.h"
 #include "command.h"
+
+#define UNUSED(A) (void)(A)
 
 #define MIN(A, B) ((A) < (B) ? (A) : (B))
 
@@ -36,6 +39,10 @@
         waddstr(win->curses_win, (MSG)); \
         wmove(win->curses_win, cur->y, cur->x); \
     } while (0)
+
+void sigint_handler(int sig) {
+    signal(sig, SIG_IGN);
+}
 
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
@@ -287,6 +294,10 @@ static void handle_normal_mode(
             char next_cmd = wgetch(win->curses_win);
             switch (next_cmd) {
                 case 'y':
+                    if (cur->clipboard) {
+                        free(cur->clipboard->data);
+                        free(cur->clipboard);
+                    }
                     cur->clipboard = text_copy_line(cur->line);
                     break;
 
@@ -297,8 +308,10 @@ static void handle_normal_mode(
         }
 
         case 'p': {
-            struct Text *line = text_copy_line(cur->clipboard);
-            text_insert_line(cur->line, line, cur->line->next);
+            if (cur->clipboard) {
+                struct Text *line = text_copy_line(cur->clipboard);
+                text_insert_line(cur->line, line, cur->line->next);
+            }
             break;
         }
 
@@ -496,6 +509,8 @@ int main(int argc, char **argv) {
     struct Cursor cur;
     struct Text *line;
 
+    signal(SIGINT, sigint_handler);
+
     cur.x = 0;
     cur.old_x = 0;
     cur.y = 0;
@@ -532,6 +547,8 @@ int main(int argc, char **argv) {
         free(line->data);
         free(line);
     }
+
+    free(cur.clipboard);
 
     /* exit curses */
     clrtoeol();
