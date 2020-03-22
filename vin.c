@@ -404,6 +404,15 @@ static void handle_normal_mode(
             break;
         }
 
+        case 'G':
+            break;
+            /* TODO: this isn't working yet */
+            for (; cur->line->next; cur->line = cur->line->next) {
+                cur->line_no++;
+            }
+            cur->top_of_screen = cur->line;
+            break;
+
         case 'a':
             *mode = INSERT;
             cursor_advance(cur);
