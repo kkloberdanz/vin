@@ -61,20 +61,10 @@ static void redraw_screen(
 ) {
     struct Text *line;
     size_t i;
-    size_t num_lines_in_screen;
     char msg[80] = {0};
     memset(msg, ' ', 79);
     wclear(win->curses_win);
-    /*for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {*/
-
-    /* set line to scroll to get top of screen */
-    for (
-        num_lines_in_screen = win->maxlines - 2, line = cur->line;
-        line->prev && (num_lines_in_screen > 0);
-        line = line->prev, num_lines_in_screen--
-    );
-
-    for (i = 0; line; line = line->next, i++) {
+    for (i = 0, line = cur->top_of_screen; line; line = line->next, i++) {
         if (i >= win->maxlines - 1) {
             break;
         }
@@ -214,6 +204,10 @@ static void handle_normal_mode(
                 cur->x = MIN(cur->old_x, pos);
                 if (cur->y > 0) {
                     cur->y--;
+                } else {
+                    if (cur->top_of_screen) {
+                        cur->top_of_screen = cur->top_of_screen->prev;
+                    }
                 }
             }
             break;
@@ -233,6 +227,10 @@ static void handle_normal_mode(
                 cur->x = MIN(cur->old_x, pos);
                 if (cur->y < win->maxlines - 2) {
                     cur->y++;
+                } else {
+                    if (cur->top_of_screen) {
+                        cur->top_of_screen = cur->top_of_screen->next;
+                    }
                 }
             }
             break;
@@ -397,6 +395,7 @@ static void handle_normal_mode(
                     cur->y = 0;
                     cur->line_no = 1;
                     cur->line = cur->top_of_text;
+                    cur->top_of_screen = cur->top_of_text;
                     break;
 
                 default:
@@ -535,6 +534,7 @@ int main(int argc, char **argv) {
     }
 
     cur.line = cur.top_of_text;
+    cur.top_of_screen = cur.top_of_text;
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
     event_loop(&win, &cur, filename);
 

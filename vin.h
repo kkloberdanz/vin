@@ -29,6 +29,7 @@ struct Cursor {
     size_t line_no;
     struct Text *line;
     struct Text *top_of_text;
+    struct Text *top_of_screen;
     struct Text *clipboard;
 };
 
