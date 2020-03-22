@@ -479,7 +479,9 @@ int main(int argc, char **argv) {
     struct Text *line;
 
     cur.x = 0;
+    cur.old_x = 0;
     cur.y = 0;
+    cur.old_y = 0;
     cur.total_lines = 0;
     cur.line = text_new_line(NULL, NULL);
     cur.top_of_text = cur.line;
