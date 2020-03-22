@@ -26,11 +26,11 @@ SRC = $(wildcard *.c) $(wildcard extern/*.c)
 HEADERS = $(wildcard *.h)
 OBJS = $(patsubst %.c,%.o,$(SRC))
 
-all: vin
+all: small
 
 .PHONY: small
 small: OPTIM := -Os
-small: all
+small: vin
 	strip \
 		-S \
 		--strip-unneeded \
