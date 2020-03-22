@@ -55,9 +55,17 @@ static void redraw_screen(
     size_t i;
     char msg[80] = {0};
     memset(msg, ' ', 79);
-    cur->total_lines = text_total_lines(cur->top_of_text);
     wclear(win->curses_win);
-    for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {
+    /*for (i = 0, line = cur->top_of_text; line; line = line->next, i++) {*/
+
+    /* set line to scroll to get top of screen */
+    for (
+        i = win->maxlines - 2, line = cur->line;
+        line->prev && (i > 0);
+        line = line->prev, i--
+    );
+
+    for (i = 0; line; line = line->next, i++) {
         if (i >= win->maxlines - 1) {
             break;
         }
@@ -79,7 +87,7 @@ static void redraw_screen(
     }
 
     wmove(win->curses_win, win->maxlines - 1, 55);
-    sprintf(msg, "%lu - %lu", cur->x + 1, cur->y + 1);
+    sprintf(msg, "%lu - %lu", cur->x + 1, cur->line_no);
     waddstr(win->curses_win, msg);
     wmove(win->curses_win, cur->y, cur->x);
     wrefresh(win->curses_win);
@@ -197,6 +205,7 @@ static void handle_normal_mode(
                     cur->old_x = MAX(cur->x, cur->old_x);
                     cur->x = MIN(cur->old_x, pos);
                     cur->y--;
+                    cur->line_no--;
                 }
             }
             break;
@@ -216,6 +225,13 @@ static void handle_normal_mode(
                     cur->old_x = MAX(cur->x, cur->old_x);
                     cur->x = MIN(cur->old_x, pos);
                     cur->y++;
+                    cur->line_no++;
+                }
+            } else {
+                /* TODO: scroll screen down */
+                if (cur->line->next) {
+                    cur->line_no++;
+                    cur->line = cur->line->next;
                 }
             }
             break;
@@ -341,6 +357,7 @@ static void handle_normal_mode(
         case 'o': {
             struct Text *new_line = text_make_line();
             cur->y++;
+            cur->line_no++;
             cur->x = 0;
 
             text_insert_line(cur->line, new_line, cur->line->next);
@@ -370,6 +387,7 @@ static void handle_normal_mode(
                 case 'g':
                     cur->x = 0;
                     cur->y = 0;
+                    cur->line_no = 1;
                     cur->line = cur->top_of_text;
                     break;
 
@@ -482,10 +500,10 @@ int main(int argc, char **argv) {
     cur.old_x = 0;
     cur.y = 0;
     cur.old_y = 0;
-    cur.total_lines = 0;
     cur.line = text_new_line(NULL, NULL);
     cur.top_of_text = cur.line;
     cur.clipboard = NULL;
+    cur.line_no = 1;
 
     /* setup curses */
     initscr();
@@ -502,7 +520,6 @@ int main(int argc, char **argv) {
         fp = fopen(argv[1], "r");
         if (fp) {
             text_read_from_file(cur.line, fp);
-            cur.total_lines = text_total_lines(cur.top_of_text);
             fclose(fp);
         }
     }
