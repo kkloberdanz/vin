@@ -360,6 +360,16 @@ static void handle_normal_mode(
             break;
         }
 
+        case 'O': {
+            struct Text *new_line = text_make_line();
+            *mode = INSERT;
+            text_insert_line(cur->line->prev, new_line, cur->line);
+            cur->x = 0;
+            cur->line = new_line;
+            cur->line->len = strlen(cur->line->data);
+            break;
+        }
+
         case 'o': {
             struct Text *new_line = text_make_line();
             cur->y++;
@@ -405,8 +415,11 @@ static void handle_normal_mode(
         }
 
         case 'G':
-            break;
-            /* TODO: this isn't working yet */
+            cur->x = 0;
+            cur->y = 0;
+            cur->line_no = 1;
+            cur->line = cur->top_of_text;
+            cur->top_of_screen = cur->top_of_text;
             for (; cur->line->next; cur->line = cur->line->next) {
                 cur->line_no++;
             }
