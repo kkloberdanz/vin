@@ -16,31 +16,11 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <curses.h>
 
+#include "vin.h"
 #include "text.h"
-
-struct Cursor {
-    size_t x;
-    size_t y;
-    size_t old_x;
-    size_t old_y;
-    struct Text *line;
-    struct Text *top_of_text;
-};
-
-struct Window {
-    WINDOW *curses_win;
-    size_t maxlines;
-    size_t maxcols;
-};
-
-enum Mode {
-    NORMAL,
-    INSERT,
-    EX,
-    QUIT
-};
 
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
@@ -266,6 +246,7 @@ static void handle_normal_mode(
 static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
     int c;
     enum Mode mode = NORMAL;
+    redraw_screen(win, cur);
     while ((c = wgetch(win->curses_win))) {
         switch (mode) {
             case NORMAL:
@@ -294,6 +275,7 @@ int main(int argc, char **argv) {
     struct Window win;
     FILE *fp = NULL;
     struct Cursor cur;
+    struct Text *line;
 
     cur.x = 0;
     cur.y = 0;
@@ -310,15 +292,23 @@ int main(int argc, char **argv) {
     win.maxlines = LINES;
     win.maxcols = COLS;
 
-    puts(argv[1]);
     if (argc == 2) {
-        fp = fopen(argv[1], "w");
+        fp = fopen(argv[1], "r+");
+        if (!fp) {
+            fp = fopen(argv[1], "w");
+        } else {
+            text_read_from_file(cur.line, fp);
+        }
     }
 
+    cur.line = cur.top_of_text;
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
-
     event_loop(&win, &cur, fp);
 
+    for (line = cur.top_of_text; line; line = line->next) {
+        free(line->data);
+        free(line);
+    }
     clrtoeol();
     refresh();
     endwin();

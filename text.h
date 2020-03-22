@@ -41,4 +41,9 @@ void text_insert_char(struct Text *line, size_t index, char c);
  */
 void text_shift_left(struct Text *line, size_t index);
 
+/**
+ * Load a file into a text struct
+ */
+void text_read_from_file(struct Text *line, FILE *fp);
+
 #endif /* TEXT_H */

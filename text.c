@@ -1,6 +1,11 @@
 #include <stdlib.h>
+#include <sys/types.h>
 
 #include "text.h"
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+
+char *strdup(const char *s);
 
 struct Text *text_new_line(struct Text *prev, struct Text *next) {
     struct Text *line = malloc(sizeof(struct Text));
@@ -73,4 +78,17 @@ void text_shift_left(struct Text *line, size_t index) {
     for (i = index; line->data[i] != '\0'; i++) {
         line->data[i] = line->data[i + 1];
     }
+}
+
+void text_read_from_file(struct Text *line, FILE *fp) {
+    char *line_of_input = NULL;
+    size_t n = 0;
+    long tell = ftell(fp);
+    while ((getline(&line_of_input, &n, fp) != -1)) {
+        text_new_line(line, NULL);
+        line->data = strdup(line_of_input);
+        line = line->next;
+    }
+    free(line_of_input);
+    fseek(fp, tell, SEEK_SET);
 }
