@@ -31,6 +31,12 @@ all: vin
 debug: OPTIM := -ggdb3 -O0 -Werror
 debug: all
 
+sanitize: OPTIM := -ggdb3 -O0 -Werror \
+	-fsanitize=address \
+	-fsanitize=leak \
+	-fsanitize=undefined
+sanitize: all
+
 vin: $(OBJS)
 	$(CC) -o vin $(OBJS) $(CFLAGS) $(LDFLAGS)
 
@@ -41,3 +47,4 @@ vin: $(OBJS)
 clean:
 	rm -f vin
 	rm -f *.o
+	rm -f core

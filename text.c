@@ -24,7 +24,7 @@ struct Text *text_new_line(struct Text *prev, struct Text *next) {
     line->data = malloc(2 * sizeof(char));
     line->data[0] = '\n';
     line->data[1] = '\0';
-    line->len = 2;
+    line->len = 0;
     line->capacity = 1;
     return line;
 }
@@ -33,22 +33,22 @@ void text_push_char(struct Text *line, char c) {
     if (line->len >= line->capacity) {
         line->capacity *= 2;
         line->data = realloc(line->data, line->capacity + 1);
-        line->data[line->capacity] = '\0';
     }
 
     line->data[line->len++] = c;
 }
 
-void text_write(struct Text *line, FILE *fp) {
-    if (!fp) {
+void text_write(struct Text *line, char *filename) {
+    FILE *fp = NULL;
+    if (!filename) {
         return;
     }
-    fseek(fp, 0, SEEK_SET);
-    fp = freopen(NULL, "w", fp);
+    fp = fopen(filename, "w");
     for (; line; line = line->next) {
         fprintf(fp, "%s", line->data);
     }
     fflush(fp);
+    fclose(fp);
 }
 
 void text_backspace(struct Text *line, size_t index) {
@@ -65,11 +65,11 @@ void text_insert_char(struct Text *line, size_t index, char c) {
     if (line->len >= line->capacity) {
         line->capacity *= 2;
         line->data = realloc(line->data, line->capacity + 1);
-        line->data[line->capacity] = '\0';
     }
     for (i = line->len - 1; i > index; i--) {
         line->data[i] = line->data[i - 1];
     }
+    memset(line->data + line->len, 0, line->capacity - line->len);
     line->data[index] = c;
 }
 
@@ -96,8 +96,17 @@ void text_read_from_file(struct Text *line, FILE *fp) {
     }
     free(line_of_input);
     line = line->prev;
-    free(line->next->data);
     free(line->next);
     line->next = NULL;
     fseek(fp, tell, SEEK_SET);
+}
+
+struct Text *text_split_line(struct Text *line, size_t index) {
+    struct Text *new_line = text_new_line(line, line->next);
+    new_line->data = strdup(line->data + index);
+    new_line->len = strlen(new_line->data);
+    line->data[index] = '\n';
+    line->data[index + 1] = '\0';
+    line->len = strlen(line->data);
+    return new_line;
 }

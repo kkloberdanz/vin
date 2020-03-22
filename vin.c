@@ -57,7 +57,7 @@ static void handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
-    FILE *fp,
+    char *filename,
     int c
 ) {
     wputchar(win, cur, c);
@@ -84,7 +84,7 @@ static void handle_ex_mode(
 
         case 'w':
             /* write out */
-            text_write(cur->top_of_text, fp);
+            text_write(cur->top_of_text, filename);
             break;
 
         default:
@@ -120,8 +120,8 @@ static void handle_insert_mode(
 
         case '\n':
             cur->y++;
+            cur->line = text_split_line(cur->line, cur->x);
             cur->x = 0;
-            cur->line = text_new_line(cur->line, cur->line->next);
             redraw_screen(win, cur);
             break;
 
@@ -171,7 +171,6 @@ static void handle_normal_mode(
                 cur->line = cur->line->next;
                 pos = cur->line->len - 2;
                 cur->x = (pos > cur->x) ? 0 : MIN(cur->x, pos);
-                sprintf(msg_buf, "%lu %lu\n", cur->x, cur->y);
                 if (cur->y < win->maxlines - 1) {
                     cur->y++;
                 }
@@ -225,6 +224,16 @@ static void handle_normal_mode(
             }
             break;
 
+        case 'D': {
+            char *start_ptr = cur->line->data + cur->x;
+            memset(start_ptr, 0, strlen(start_ptr));
+            cur->line->data[cur->x] = '\n';
+            cur->x--;
+            cur->line->len = strlen(cur->line->data);
+            redraw_screen(win, cur);
+            break;
+        }
+
         case '$':
         case 'E':
             cur->x = cur->line->len - 2;
@@ -241,7 +250,6 @@ static void handle_normal_mode(
                 waddstr(win->curses_win, cur->line->next->data);
                 wmove(win->curses_win, cur->y, cur->x);
             }
-            redraw_screen(win, cur);
             /* fallthrough */
 
         case 'i':
@@ -251,6 +259,7 @@ static void handle_normal_mode(
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
             wmove(win->curses_win, cur->y, cur->x);
+            redraw_screen(win, cur);
             break;
 
         case 'a':
@@ -269,8 +278,7 @@ static void handle_normal_mode(
             waddstr(win->curses_win, "                                      ");
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, "-- INSERT --");
-            cur->x = cur->line->len;
-            wmove(win->curses_win, cur->y, cur->x);
+            cur->x = cur->line->len - 1;
             break;
 
         case '0':
@@ -308,7 +316,11 @@ static void handle_normal_mode(
     }
 }
 
-static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
+static int event_loop(
+    struct Window *win,
+    struct Cursor *cur,
+    char *filename
+) {
     int c;
     enum Mode mode = NORMAL;
     struct Command cmd;
@@ -327,7 +339,7 @@ static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
                 break;
 
             case EX:
-                handle_ex_mode(win, cur, &mode, fp, c);
+                handle_ex_mode(win, cur, &mode, filename, c);
                 break;
 
             case QUIT:
@@ -343,6 +355,7 @@ static int event_loop(struct Window *win, struct Cursor *cur, FILE *fp) {
 int main(int argc, char **argv) {
     struct Window win;
     FILE *fp = NULL;
+    char *filename = NULL;
     struct Cursor cur;
     struct Text *line;
 
@@ -362,31 +375,25 @@ int main(int argc, char **argv) {
     win.maxcols = COLS;
 
     if (argc == 2) {
-        fp = fopen(argv[1], "r+");
-        if (!fp) {
-            fp = fopen(argv[1], "w");
-        } else {
+        filename = argv[1];
+        fp = fopen(argv[1], "r");
+        if (fp) {
             text_read_from_file(cur.line, fp);
+            fclose(fp);
         }
     }
 
     cur.line = cur.top_of_text;
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
-    event_loop(&win, &cur, fp);
+    event_loop(&win, &cur, filename);
 
     for (line = cur.top_of_text; line; line = line->next) {
         free(line->data);
         free(line);
     }
-    clrtoeol();
-    refresh();
-    endwin();
-
-    if (fp) {
-        fclose(fp);
-    }
 
     /* exit curses */
+    clrtoeol();
     refresh();
     endwin();
 

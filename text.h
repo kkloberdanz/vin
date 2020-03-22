@@ -22,9 +22,9 @@ struct Text *text_new_line(struct Text *prev, struct Text *next);
 void text_push_char(struct Text *line, char c);
 
 /**
- * writes text out to file, fp
+ * writes text out to file
  */
-void text_write(struct Text *top_of_text, FILE *fp);
+void text_write(struct Text *line, char *filename);
 
 /**
  * backspaces text from the index
@@ -45,5 +45,10 @@ void text_shift_left(struct Text *line, size_t index);
  * Load a file into a text struct
  */
 void text_read_from_file(struct Text *line, FILE *fp);
+
+/**
+ * split a line of text into 2 lines starting from index
+ */
+struct Text *text_split_line(struct Text *line, size_t index);
 
 #endif /* TEXT_H */
