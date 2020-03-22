@@ -35,7 +35,7 @@
         wmove(win->curses_win, win->maxlines - 1, 0); \
         waddstr(win->curses_win, (MSG)); \
         wmove(win->curses_win, cur->y, cur->x); \
-    } while (0) \
+    } while (0)
 
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
