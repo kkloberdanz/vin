@@ -47,7 +47,8 @@ enum Mode {
     NORMAL,
     INSERT,
     EX,
-    QUIT
+    QUIT,
+    SEARCH
 };
 
 #endif /* VIN_H */

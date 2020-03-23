@@ -41,8 +41,8 @@ small: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
-debug: OPTIM := -ggdb3 -O0 -Werror
-debug: all
+debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG
+debug: vin
 
 sanitize: OPTIM := -ggdb3 -O0 -Werror \
 	-fsanitize=address \

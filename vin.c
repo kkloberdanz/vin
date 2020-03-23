@@ -35,14 +35,24 @@
 
 #define FLASH_MSG(MSG) \
     do { \
-        waddstr(win->curses_win, "                                      "); \
+        waddstr(win->curses_win, blank); \
         wmove(win->curses_win, win->maxlines - 1, 0); \
         waddstr(win->curses_win, (MSG)); \
         wmove(win->curses_win, cur->y, cur->x); \
     } while (0)
 
+const char *blank = "                                      ";
+
 void sigint_handler(int sig) {
+#ifdef DEBUG
+    UNUSED(sig);
+    clrtoeol();
+    refresh();
+    endwin();
+    exit(1);
+#else
     signal(sig, SIG_IGN);
+#endif
 }
 
 static void cursor_advance(struct Cursor *cur) {
@@ -92,6 +102,14 @@ static void redraw_screen(
     wrefresh(win->curses_win);
 }
 
+static void handle_normal_mode(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c,
+    struct Command *cmd
+);
+
 static void handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
@@ -99,46 +117,78 @@ static void handle_ex_mode(
     char *filename,
     int c
 ) {
-    wputchar(win, cur, c);
-    /* TODO: put this in a while loop to read in commands */
-    switch (c) {
-        case 27: /* escape key */
-            *mode = NORMAL;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
-            cur->x = cur->old_x;
-            cur->y = cur->old_y;
-            break;
+    char buf[80] = {0};
+    size_t buf_index = 0;
+    size_t new_l = 0;
+    size_t i;
+    size_t difference;
+    char *p;
 
-        case '\n':
-            *mode = NORMAL;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
-            cur->x = cur->old_x;
-            cur->y = cur->old_y;
-            break;
+    do {
+        wputchar(win, cur, c);
+        switch (c) {
+            case 27: /* escape key */
+                *mode = NORMAL;
+                wmove(win->curses_win, win->maxlines - 1, 0);
+                waddstr(win->curses_win, blank);
+                cur->x = cur->old_x;
+                cur->y = cur->old_y;
+                goto leave_ex;
 
-        case 'q':
-            *mode = QUIT;
-            break;
+            case '\n':
+                new_l = strtol(buf, &p, 10);
+                if (*p == 0) {
+                    if (new_l > cur->line_no) {
+                        difference = new_l - cur->line_no;
+                        for (i = 0; i < difference; i++) {
+                            handle_normal_mode(win, cur, mode, 'j', NULL);
+                        }
 
-        case 'w':
-            /* write out */
-            text_write(cur->top_of_text, filename);
-            break;
+                    } else if (new_l == cur->line_no) {
+                        /* do nothing */
+                    } else {
+                        difference = cur->line_no - new_l;
+                        for (i = 0; i < difference; i++) {
+                            handle_normal_mode(win, cur, mode, 'k', NULL);
+                        }
+                    }
 
-        default:
-            break;
-    }
+                }
+                *mode = NORMAL;
+                wmove(win->curses_win, win->maxlines - 1, 0);
+                waddstr(win->curses_win, blank);
+                cur->x = cur->old_x;
+                cur->y = cur->old_y;
+                goto leave_ex;
+
+            case 'q':
+                *mode = QUIT;
+                goto leave_ex;
+                break;
+
+            case 'w':
+                /* write out */
+                text_write(cur->top_of_text, filename);
+                break;
+
+            default:
+                buf[buf_index++] = c;
+                break;
+        }
+    } while ((c = wgetch(win->curses_win)));
+leave_ex:
+    return;
 }
 
 static void handle_insert_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
-    int c
+    int c,
+    struct Command *cmd
 ) {
     int i;
+    UNUSED(cmd);
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
@@ -263,6 +313,10 @@ static void handle_normal_mode(
                 text_shift_left(cur->line, cur->x);
                 redraw_screen(win, cur, *mode);
             }
+            break;
+
+        case '/':
+            *mode = SEARCH;
             break;
 
         case 'r':
@@ -449,7 +503,7 @@ static void handle_normal_mode(
             cur->x = 0;
             cur->y = win->maxlines - 1;
             wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "                                      ");
+            waddstr(win->curses_win, blank);
             wmove(win->curses_win, win->maxlines - 1, 0);
             wputchar(win, cur, c);
             break;
@@ -492,11 +546,17 @@ static int event_loop(
                 break;
 
             case INSERT:
-                handle_insert_mode(win, cur, &mode, c);
+                handle_insert_mode(win, cur, &mode, c, &cmd);
                 break;
 
             case EX:
                 handle_ex_mode(win, cur, &mode, filename, c);
+                break;
+
+            case SEARCH:
+                /*
+                handle_search_mode(win, cur, &mode);
+                */
                 break;
 
             case QUIT:
