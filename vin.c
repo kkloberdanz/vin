@@ -293,7 +293,6 @@ static void handle_normal_mode(
 
         case ' ':
         case 'l':
-            cur->line->len = strlen(cur->line->data);
             if (cur->line->len > 2) {
                 pos = cur->line->len - 2;
             } else {
@@ -399,11 +398,10 @@ static void handle_normal_mode(
             break;
 
         case 'D': {
-            char *start_ptr = cur->line->data + cur->x;
-            memset(start_ptr, 0, strlen(start_ptr));
             cur->line->data[cur->x] = '\n';
+            cur->line->data[cur->x + 1] = '\0';
             cur->x--;
-            cur->line->len = strlen(cur->line->data);
+            cur->line->len = cur->x;
             redraw_screen(win, cur, *mode);
             break;
         }
