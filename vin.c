@@ -72,15 +72,22 @@ static void redraw_screen(
     struct Text *line;
     size_t i;
     char msg[80] = {0};
+    FILE *out = fopen("/tmp/out.log", "a");
     memset(msg, ' ', 79);
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_screen; line; line = line->next, i++) {
-        if (i >= win->maxlines - 1) {
+        if (!line || !line->data) {
             break;
         }
+
         line->len = strlen(line->data);
         wmove(win->curses_win, i, 0);
         waddstr(win->curses_win, line->data);
+        fprintf(out, "%s\n", line->data);
+
+        if (i >= (win->maxlines - 2)) {
+            break;
+        }
     }
 
     switch (mode) {
@@ -100,6 +107,7 @@ static void redraw_screen(
     waddstr(win->curses_win, msg);
     wmove(win->curses_win, cur->y, cur->x);
     wrefresh(win->curses_win);
+    fclose(out);
 }
 
 static void handle_normal_mode(
@@ -247,7 +255,7 @@ static void handle_normal_mode(
     char msg_buf[80];
     switch (c) {
         case 'k':
-            if (cur->line->prev) {
+            if (cur->line && cur->line->prev) {
                 cur->line_no--;
                 cur->line = cur->line->prev;
                 if (cur->line->len > 2) {
@@ -270,7 +278,7 @@ static void handle_normal_mode(
 
         case '\n':
         case 'j':
-            if (cur->line->next) {
+            if (cur->line && cur->line->next) {
                 cur->line_no++;
                 cur->line = cur->line->next;
                 if (cur->line->len > 2) {
@@ -323,6 +331,7 @@ static void handle_normal_mode(
         case '/':
             sprintf(msg_buf, "%c", '/');
             FLASH_MSG(msg_buf);
+            cursor_advance(cur);
             *mode = SEARCH;
             break;
 
@@ -432,21 +441,17 @@ static void handle_normal_mode(
 
         case 'o': {
             struct Text *new_line = text_make_line();
+            *mode = INSERT;
+
             cur->y++;
             cur->line_no++;
             cur->x = 0;
 
             text_insert_line(cur->line, new_line, cur->line->next);
 
-            cur->line = cur->line->next;
+            cur->line = new_line;
             text_push_char(cur->line, '\n');
 
-            wmove(win->curses_win, cur->y + 1, 0);
-            waddstr(win->curses_win, cur->line->next->data);
-            wmove(win->curses_win, cur->y, cur->x);
-
-            *mode = INSERT;
-            wmove(win->curses_win, cur->y, cur->x);
             redraw_screen(win, cur, *mode);
             break;
         }
@@ -550,15 +555,18 @@ void handle_search_mode(
 ) {
     struct Text *line = cur->line;
     long index = 0;
-    char search_term[50] = {0};
+    char buf[50] = {0};
+    char *search_term = buf + 1;
     size_t line_no = cur->line_no;
     *mode = NORMAL;
+
+    buf[0] = '/';
     do {
         if (c == '\n') {
             break;
         }
         search_term[index++] = c;
-        FLASH_MSG(search_term);
+        FLASH_MSG(buf);
         if (index >= 49) {
             break;
         }

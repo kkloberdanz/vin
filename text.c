@@ -60,6 +60,10 @@ struct Text *text_make_line() {
 }
 
 void text_push_char(struct Text *line, char c) {
+    if (!line || !line->data) {
+        fprintf(stderr, "%s\n", "pushing to null string");
+        exit(43);
+    }
     if (line->len >= line->capacity) {
         line->capacity *= 2;
         line->data = realloc(line->data, line->capacity + 1);
@@ -136,12 +140,13 @@ void text_read_from_file(struct Text *line, FILE *fp) {
 }
 
 struct Text *text_split_line(struct Text *line, size_t index) {
-    struct Text *new_line = text_new_line(line, line->next);
+    struct Text *new_line = text_make_line();
+    text_insert_line(line, new_line, line->next);
     new_line->data = strdup(line->data + index);
     new_line->len = strlen(new_line->data);
     line->data[index] = '\n';
     line->data[index + 1] = '\0';
-    line->len = strlen(line->data);
+    line->len = index;
     return new_line;
 }
 
