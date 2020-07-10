@@ -72,7 +72,6 @@ static void redraw_screen(
     struct Text *line;
     size_t i;
     char msg[80] = {0};
-    FILE *out = fopen("/tmp/out.log", "a");
     memset(msg, ' ', 79);
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_screen; line; line = line->next, i++) {
@@ -80,10 +79,8 @@ static void redraw_screen(
             break;
         }
 
-        line->len = strlen(line->data);
         wmove(win->curses_win, i, 0);
         waddstr(win->curses_win, line->data);
-        fprintf(out, "%s\n", line->data);
 
         if (i >= (win->maxlines - 2)) {
             break;
@@ -107,7 +104,6 @@ static void redraw_screen(
     waddstr(win->curses_win, msg);
     wmove(win->curses_win, cur->y, cur->x);
     wrefresh(win->curses_win);
-    fclose(out);
 }
 
 static void handle_normal_mode(
@@ -418,7 +414,6 @@ static void handle_normal_mode(
         case '$':
         case 'E': {
             size_t pos;
-            cur->line->len = strlen(cur->line->data);
             if (cur->line->len > 2) {
                 pos = cur->line->len - 2;
             } else {
@@ -435,7 +430,6 @@ static void handle_normal_mode(
             text_insert_line(cur->line->prev, new_line, cur->line);
             cur->x = 0;
             cur->line = new_line;
-            cur->line->len = strlen(cur->line->data);
             break;
         }
 
@@ -485,7 +479,7 @@ static void handle_normal_mode(
             cur->line_no = 1;
             cur->line = cur->top_of_text;
             cur->top_of_screen = cur->top_of_text;
-            for (; cur->line->next; cur->line = cur->line->next) {
+            for (; cur->line && cur->line->next; cur->line = cur->line->next) {
                 cur->line_no++;
             }
             cur->top_of_screen = cur->line;
@@ -649,7 +643,7 @@ int main(int argc, char **argv) {
     FILE *fp = NULL;
     char *filename = NULL;
     struct Cursor cur;
-    struct Text *line;
+    /*struct Text *line;*/
 
     signal(SIGINT, sigint_handler);
 
@@ -686,12 +680,17 @@ int main(int argc, char **argv) {
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
     event_loop(&win, &cur, filename);
 
+    fclose(stderr);
+
+    /* leaking memory for now until I can figure out where these errors
+     * are coming from
     for (line = cur.top_of_text; line; line = line->next) {
         free(line->data);
         free(line);
     }
 
     free(cur.clipboard);
+    */
 
     /* exit curses */
     clrtoeol();

@@ -26,7 +26,7 @@ ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 char *strdup(const char *s);
 
 static struct Text *text_new_line(struct Text *prev, struct Text *next) {
-    struct Text *line = malloc(sizeof(struct Text));
+    struct Text *line = calloc(1, sizeof(struct Text));
     line->prev = prev;
     line->next = next;
 
@@ -38,7 +38,7 @@ static struct Text *text_new_line(struct Text *prev, struct Text *next) {
         next->prev = line;
     }
 
-    line->data = malloc(2 * sizeof(char));
+    line->data = calloc(2, sizeof(char));
     line->data[0] = '\n';
     line->data[1] = '\0';
     line->len = 0;
@@ -47,11 +47,11 @@ static struct Text *text_new_line(struct Text *prev, struct Text *next) {
 }
 
 struct Text *text_make_line() {
-    struct Text *line = malloc(sizeof(struct Text));
+    struct Text *line = calloc(1, sizeof(struct Text));
     line->next = NULL;
     line->prev = NULL;
 
-    line->data = malloc(2 * sizeof(char));
+    line->data = calloc(2, sizeof(char));
     line->data[0] = '\n';
     line->data[1] = '\0';
     line->len = 0;
@@ -64,12 +64,13 @@ void text_push_char(struct Text *line, char c) {
         fprintf(stderr, "%s\n", "pushing to null string");
         exit(43);
     }
-    if (line->len >= line->capacity) {
-        line->capacity *= 2;
+    if (line->len >= line->capacity - 1) {
+        line->capacity = 1 + (line->capacity * 2);
         line->data = realloc(line->data, line->capacity + 1);
     }
 
     line->data[line->len++] = c;
+    line->data[line->len+1] = '\0';
 }
 
 void text_write(struct Text *line, char *filename) {
@@ -109,6 +110,7 @@ void text_insert_char(struct Text *line, size_t index, char c) {
     }
     line->data[line->capacity] = '\0';
     line->data[index] = c;
+    line->data[line->len] = '\0';
 }
 
 void text_shift_left(struct Text *line, size_t index) {
@@ -151,7 +153,7 @@ struct Text *text_split_line(struct Text *line, size_t index) {
 }
 
 struct Text *text_copy_line(struct Text *line) {
-    struct Text *new_line = malloc(sizeof(struct Text));
+    struct Text *new_line = calloc(1, sizeof(struct Text));
     new_line->data = strdup(line->data);
     new_line->len = strlen(line->data);
     new_line->capacity = new_line->len + 1;
