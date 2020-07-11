@@ -311,7 +311,11 @@ static void handle_normal_mode(
             }
             if (cur->x < pos) {
                 if (cur->x < win->maxcols - 1) {
-                    cur->x++;
+                    if (cur->line->data[cur->x] == '\t') {
+                        cur->x += 8;
+                    } else {
+                        cur->x++;
+                    }
                 }
             }
             cur->old_x = cur->x;
@@ -319,7 +323,11 @@ static void handle_normal_mode(
 
         case 'h':
             if (cur->x > 0) {
-                cur->x--;
+                if (cur->line->data[cur->x] == '\t') {
+                    cur->x -= 8;
+                } else {
+                    cur->x--;
+                }
             }
             break;
 
