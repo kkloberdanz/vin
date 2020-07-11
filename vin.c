@@ -685,7 +685,8 @@ int main(int argc, char **argv) {
     FILE *fp = NULL;
     char *filename = NULL;
     struct Cursor cur;
-    /*struct Text *line;*/
+    struct Text *line;
+    struct Text *next;
 
     signal(SIGINT, sigint_handler);
 
@@ -722,15 +723,15 @@ int main(int argc, char **argv) {
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
     event_loop(&win, &cur, filename);
 
-    /* leaking memory for now until I can figure out where these errors
-     * are coming from
-    for (line = cur.top_of_text; line; line = line->next) {
+    line = cur.top_of_text;
+    while (line) {
+        next = line->next;
         free(line->data);
-        free(line);
+        free(line); 
+        line = next;
     }
 
     free(cur.clipboard);
-    */
 
     /* exit curses */
     clrtoeol();
