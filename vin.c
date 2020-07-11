@@ -372,6 +372,23 @@ static void handle_normal_mode(
             break;
         }
 
+        case 'w':
+            c = cur->line->data[cur->x];
+            if (cur->line->data[cur->x + 1] == '\n') {
+                handle_normal_mode(win, cur, mode, '0', cmd);
+                handle_normal_mode(win, cur, mode, 'j', cmd);
+            }
+            while (c != ' ' && c != '\n' && c != '\0') {
+                c = cur->line->data[++cur->x];
+            }
+            while (c == ' ' && c != '\n' && c != '\0') {
+                c = cur->line->data[++cur->x];
+            }
+            if (c == '\n') {
+                cur->x--;
+            }
+            break;
+
         case 'p': {
             if (cur->clipboard) {
                 struct Text *line = text_copy_line(cur->clipboard);
