@@ -55,6 +55,15 @@ void sigint_handler(int sig) {
 #endif
 }
 
+static int handle_input(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c,
+    struct Command *cmd,
+    char *filename
+);
+
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
 }
@@ -146,21 +155,19 @@ static void handle_ex_mode(
                         difference = new_l - cur->line_no;
                         for (i = 0; i < difference; i++) {
                             handle_normal_mode(win, cur, mode, 'j', NULL);
-                            getmaxyx(win->curses_win, win->maxlines, win->maxcols);
-                            wmove(win->curses_win, cur->y, cur->x);
-                            wrefresh(win->curses_win);
                         }
+                        handle_normal_mode(win, cur, mode, '0', NULL);
 
                     } else if (new_l == cur->line_no) {
                         /* do nothing */
                     } else {
+                        /* no idea why this isn't working. disabling for now
                         difference = cur->line_no - new_l;
                         for (i = 0; i < difference; i++) {
                             handle_normal_mode(win, cur, mode, 'k', NULL);
-                            getmaxyx(win->curses_win, win->maxlines, win->maxcols);
-                            wmove(win->curses_win, cur->y, cur->x);
-                            wrefresh(win->curses_win);
                         }
+                        handle_normal_mode(win, cur, mode, '0', NULL);
+                        */
                     }
 
                 }
@@ -265,7 +272,7 @@ static void handle_normal_mode(
                 if (cur->y > 0) {
                     cur->y--;
                 } else {
-                    if (cur->top_of_screen) {
+                    if (cur->top_of_screen && cur->top_of_screen->prev) {
                         cur->top_of_screen = cur->top_of_screen->prev;
                     }
                 }
@@ -288,7 +295,7 @@ static void handle_normal_mode(
                 if (cur->y < win->maxlines - 2) {
                     cur->y++;
                 } else {
-                    if (cur->top_of_screen) {
+                    if (cur->top_of_screen && cur->top_of_screen->next) {
                         cur->top_of_screen = cur->top_of_screen->next;
                     }
                 }
@@ -474,11 +481,11 @@ static void handle_normal_mode(
         }
 
         case 'G':
-            cur->x = 0;
             cur->y = 0;
             cur->line_no = 1;
             cur->line = cur->top_of_text;
             cur->top_of_screen = cur->top_of_text;
+            cur->x = 0;
             for (; cur->line && cur->line->next; cur->line = cur->line->next) {
                 cur->line_no++;
             }
@@ -589,6 +596,53 @@ void handle_search_mode(
     }
 }
 
+static int handle_input(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode,
+    int c,
+    struct Command *cmd,
+    char *filename
+) {
+
+    switch (*mode) {
+        case NORMAL:
+            handle_normal_mode(win, cur, mode, c, cmd);
+            getmaxyx(win->curses_win, win->maxlines, win->maxcols);
+            wmove(win->curses_win, cur->y, cur->x);
+            wrefresh(win->curses_win);
+            break;
+
+        case INSERT:
+            handle_insert_mode(win, cur, mode, c, cmd);
+            break;
+
+        case EX:
+            handle_ex_mode(win, cur, mode, filename, c);
+            break;
+
+        case SEARCH:
+            handle_search_mode(win, cur, mode, c);
+            break;
+
+        case QUIT:
+            return 0;
+    }
+
+    switch (*mode) {
+        case NORMAL:
+        case INSERT:
+            redraw_screen(win, cur, *mode);
+
+        default:
+            break;
+    }
+    getmaxyx(win->curses_win, win->maxlines, win->maxcols);
+    wmove(win->curses_win, cur->y, cur->x);
+    wrefresh(win->curses_win);
+    return 1;
+}
+
 static int event_loop(
     struct Window *win,
     struct Cursor *cur,
@@ -602,38 +656,9 @@ static int event_loop(
     cur->y = 0;
     cmd.len = 0;
     while ((c = wgetch(win->curses_win))) {
-        switch (mode) {
-            case NORMAL:
-                handle_normal_mode(win, cur, &mode, c, &cmd);
-                break;
-
-            case INSERT:
-                handle_insert_mode(win, cur, &mode, c, &cmd);
-                break;
-
-            case EX:
-                handle_ex_mode(win, cur, &mode, filename, c);
-                break;
-
-            case SEARCH:
-                handle_search_mode(win, cur, &mode, c);
-                break;
-
-            case QUIT:
-                return 0;
+        if (handle_input(win, cur, &mode, c, &cmd, filename) == 0) {
+            break;
         }
-
-        switch (mode) {
-            case NORMAL:
-            case INSERT:
-                redraw_screen(win, cur, mode);
-
-            default:
-                break;
-        }
-        getmaxyx(win->curses_win, win->maxlines, win->maxcols);
-        wmove(win->curses_win, cur->y, cur->x);
-        wrefresh(win->curses_win);
     }
     return 1;
 }
@@ -679,8 +704,6 @@ int main(int argc, char **argv) {
     cur.top_of_screen = cur.top_of_text;
     win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
     event_loop(&win, &cur, filename);
-
-    fclose(stderr);
 
     /* leaking memory for now until I can figure out where these errors
      * are coming from
