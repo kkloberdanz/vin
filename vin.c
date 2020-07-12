@@ -435,7 +435,7 @@ static enum Todo handle_normal_mode(
             while (c == ' ' && c != '\n' && c != '\0') {
                 c = cur->line->data[++cur->x];
             }
-            if (c == '\n') {
+            if ((cur->x > 0) && ((c == '\n') || (c == '\0'))) {
                 cur->x--;
             }
             break;
