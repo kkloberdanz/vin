@@ -617,7 +617,7 @@ static void handle_search_mode(
     struct Cursor *cur,
     enum Mode *mode
 ) {
-    struct Text *line = cur->line;
+    struct Text *line = cur->line->next;
     long index = 0;
     size_t line_no = cur->line_no;
 
