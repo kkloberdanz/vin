@@ -146,7 +146,7 @@ static enum Todo handle_normal_mode(
     struct Command *cmd
 );
 
-static void handle_ex_mode(
+static enum Todo handle_ex_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -177,6 +177,9 @@ static void handle_ex_mode(
                 goto leave_ex;
 
             case '\n':
+                if (*mode == QUIT) {
+                    return TERMINATE;
+                }
                 new_l = strtol(buf, &p, 10);
                 if (*p == 0) {
                     if (new_l > cur->line_no) {
@@ -212,7 +215,6 @@ static void handle_ex_mode(
 
             case 'q':
                 *mode = QUIT;
-                goto leave_ex;
                 break;
 
             case 'w':
@@ -226,7 +228,7 @@ static void handle_ex_mode(
         }
     } while ((c = wgetch(win->curses_win)));
 leave_ex:
-    return;
+    return GET_CHAR;
 }
 
 static void handle_insert_mode(
@@ -697,7 +699,7 @@ static enum Todo handle_input(
             break;
 
         case EX:
-            handle_ex_mode(win, cur, mode, filename, c);
+            todo = handle_ex_mode(win, cur, mode, filename, c);
             break;
 
         case SEARCH:
