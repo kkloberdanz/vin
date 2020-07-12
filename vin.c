@@ -43,6 +43,8 @@
 
 static const char *blank = "                                      ";
 
+char *strdup(const char *s);
+
 static void sigint_handler(int sig) {
 #ifdef DEBUG
     UNUSED(sig);
@@ -231,11 +233,9 @@ static void handle_insert_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
-    int c,
-    struct Command *cmd
+    int c
 ) {
     int i;
-    UNUSED(cmd);
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
@@ -306,6 +306,16 @@ static enum Todo handle_normal_mode(
                 }
             }
             break;
+
+        case 'u': {
+            char *tmp = cur->line->data;
+            cur->line->data = cur->before;
+            cur->before = tmp;
+            cur->line->len = strlen(cur->line->data);
+            cur->line->capacity = strlen(cur->line->data) + 1;
+            cur->x = 0;
+            break;
+        }
 
         case '\n':
         case 'j':
@@ -505,6 +515,8 @@ static enum Todo handle_normal_mode(
         case 'O': {
             struct Text *new_line = text_make_line();
             *mode = INSERT;
+            free(cur->before);
+            cur->before = strdup(cur->line->data);
             text_insert_line(cur->line->prev, new_line, cur->line);
             cur->x = 0;
             cur->line = new_line;
@@ -514,6 +526,8 @@ static enum Todo handle_normal_mode(
         case 'o': {
             struct Text *new_line = text_make_line();
             *mode = INSERT;
+            free(cur->before);
+            cur->before = strdup(cur->line->data);
 
             cur->y++;
             cur->line_no++;
@@ -529,6 +543,8 @@ static enum Todo handle_normal_mode(
 
         case 'i':
             *mode = INSERT;
+            free(cur->before);
+            cur->before = strdup(cur->line->data);
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
@@ -615,7 +631,7 @@ static enum Todo handle_normal_mode(
 static long get_index_in_str(const char *line, const char *search_term) {
     char *str;
     if ((str = strstr(line, search_term))) {
-        return 0;
+        return str - line;
     } else {
         return -1;
     }
@@ -677,7 +693,7 @@ static enum Todo handle_input(
             break;
 
         case INSERT:
-            handle_insert_mode(win, cur, mode, c, cmd);
+            handle_insert_mode(win, cur, mode, c);
             break;
 
         case EX:
@@ -749,6 +765,7 @@ int main(int argc, char **argv) {
     cur.line_no = 1;
     cur.buf = calloc(1, 80);
     cur.buf_idx = 0;
+    cur.before = NULL;
 
     /* setup curses */
     initscr();

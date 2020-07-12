@@ -37,6 +37,7 @@ struct Cursor {
     struct Text *top_of_screen;
     struct Text *clipboard;
     char *buf;
+    char *before;
 };
 
 struct Window {
