@@ -146,6 +146,7 @@ struct Text *text_split_line(struct Text *line, size_t index) {
     text_insert_line(line, new_line, line->next);
     new_line->data = strdup(line->data + index);
     new_line->len = strlen(new_line->data);
+    new_line->capacity = new_line->len + 1;
     line->data[index] = '\n';
     line->data[index + 1] = '\0';
     line->len = index;

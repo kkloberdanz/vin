@@ -239,7 +239,9 @@ static void handle_insert_mode(
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
-            cur->x--;
+            if (cur->x > 0) {
+                cur->x--;
+            }
             break;
 
         case 127: /* backspace key */
@@ -421,7 +423,9 @@ static enum Todo handle_normal_mode(
 
         case 'w':
             c = cur->line->data[cur->x];
-            if (cur->line->data[cur->x + 1] == '\n') {
+            if ((cur->line->data[cur->x] == '\n') ||
+                (cur->line->data[cur->x + 1] == '\n')
+            ) {
                 handle_normal_mode(win, cur, mode, '0', cmd);
                 handle_normal_mode(win, cur, mode, 'j', cmd);
             }
