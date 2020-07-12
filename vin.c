@@ -116,13 +116,16 @@ static void redraw_screen(
     screen_pos = 0;
     for (i = 0; i <= cur->x; i++) {
         if (cur->line->data[i] == '\t') {
-            fprintf(stderr, "found tab\n");
             screen_pos += 8;
         } else {
             screen_pos++;
         }
     }
-    fprintf(stderr, "cursor: %lu, screen: %lu\n", cur->x, screen_pos);
+
+    wmove(win->curses_win, win->maxlines - 1, 0);
+    waddstr(win->curses_win, cur->buf);
+    wmove(win->curses_win, win->maxlines - 1, 0);
+
     wmove(win->curses_win, cur->y, screen_pos - 1);
     wrefresh(win->curses_win);
 }
@@ -150,6 +153,8 @@ static void handle_ex_mode(
     char *p;
 
     do {
+        cur->buf[cur->buf_idx++] = c;
+        redraw_screen(win, cur, *mode);
         wputchar(win, cur, c);
         switch (c) {
             case 27: /* escape key */
@@ -158,6 +163,9 @@ static void handle_ex_mode(
                 waddstr(win->curses_win, blank);
                 cur->x = cur->old_x;
                 cur->y = cur->old_y;
+                cur->buf[cur->buf_idx] = '0';
+                cur->buf_idx = 0;
+                memset(cur->buf, 0, 80);
                 goto leave_ex;
 
             case '\n':
@@ -188,6 +196,10 @@ static void handle_ex_mode(
                 waddstr(win->curses_win, blank);
                 cur->x = cur->old_x;
                 cur->y = cur->old_y;
+
+                cur->buf[cur->buf_idx] = '0';
+                cur->buf_idx = 0;
+                memset(cur->buf, 0, 80);
                 goto leave_ex;
 
             case 'q':
@@ -229,7 +241,6 @@ static void handle_insert_mode(
             if (cur->line && cur->line->len > 0) {
                 cur->line->len--;
             }
-            redraw_screen(win, cur, *mode);
             text_backspace(cur->line, cur->x);
             break;
 
@@ -237,7 +248,6 @@ static void handle_insert_mode(
             cur->y++;
             cur->line = text_split_line(cur->line, cur->x);
             cur->x = 0;
-            redraw_screen(win, cur, *mode);
             break;
 
         case '\t':
@@ -245,7 +255,6 @@ static void handle_insert_mode(
                 text_insert_char(cur->line, cur->x, ' ');
                 cursor_advance(cur);
             }
-            redraw_screen(win, cur, *mode);
             break;
 
         default:
@@ -337,7 +346,6 @@ static void handle_normal_mode(
             if ((cur->x < cur->line->len)
                     && (cur->line->data[cur->x] != '\n')) {
                 text_shift_left(cur->line, cur->x);
-                redraw_screen(win, cur, *mode);
             }
             break;
 
@@ -352,7 +360,6 @@ static void handle_normal_mode(
             if ((cur->x < cur->line->len)
                     && (cur->line->data[cur->x] != '\n')) {
                 cur->line->data[cur->x] = wgetch(win->curses_win);
-                redraw_screen(win, cur, *mode);
             }
             break;
 
@@ -423,7 +430,6 @@ static void handle_normal_mode(
                     }
                     free(tmp->data);
                     free(tmp);
-                    redraw_screen(win, cur, *mode);
                     cmd->len = 0;
                     memset(cmd, 0, 80);
                 } else {
@@ -441,7 +447,6 @@ static void handle_normal_mode(
             cur->line->data[cur->x + 1] = '\0';
             cur->x--;
             cur->line->len = cur->x;
-            redraw_screen(win, cur, *mode);
             break;
         }
 
@@ -480,14 +485,12 @@ static void handle_normal_mode(
             cur->line = new_line;
             text_push_char(cur->line, '\n');
 
-            redraw_screen(win, cur, *mode);
             break;
         }
 
         case 'i':
             *mode = INSERT;
             wmove(win->curses_win, cur->y, cur->x);
-            redraw_screen(win, cur, *mode);
             break;
 
         case 'g': {
@@ -537,6 +540,8 @@ static void handle_normal_mode(
 
         case ':':
             *mode = EX;
+            cur->buf[0] = ':';
+            cur->buf_idx = 1;
             cur->old_x = cur->x;
             cur->old_y = cur->y;
             cur->x = 0;
@@ -659,7 +664,6 @@ static int handle_input(
     switch (*mode) {
         case NORMAL:
         case INSERT:
-            redraw_screen(win, cur, *mode);
 
         default:
             break;
@@ -681,6 +685,7 @@ static int event_loop(
     cur->x = 0;
     cur->y = 0;
     cmd.len = 0;
+    redraw_screen(win, cur, mode);
     while ((c = wgetch(win->curses_win))) {
         if (handle_input(win, cur, &mode, c, &cmd, filename) == 0) {
             break;
@@ -708,6 +713,8 @@ int main(int argc, char **argv) {
     cur.top_of_text = cur.line;
     cur.clipboard = NULL;
     cur.line_no = 1;
+    cur.buf = calloc(1, 80);
+    cur.buf_idx = 0;
 
     /* setup curses */
     initscr();
@@ -742,6 +749,7 @@ int main(int argc, char **argv) {
     }
 
     free(cur.clipboard);
+    free(cur.buf);
 
     /* exit curses */
     clrtoeol();
