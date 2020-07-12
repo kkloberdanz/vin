@@ -650,6 +650,8 @@ static void handle_search_mode(
         FLASH_MSG(buf);
         wgetch(win->curses_win);
     }
+    cur->x = cur->old_x;
+    cur->y = cur->old_y;
 }
 
 static enum Todo handle_input(
