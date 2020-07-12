@@ -1,6 +1,8 @@
 #!/bin/bash
 
-set -e
+source scl_source enable devtoolset-8
+
+cc --version
 
 cd /work
 
