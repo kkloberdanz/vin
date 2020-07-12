@@ -64,6 +64,12 @@ static int handle_input(
     char *filename
 );
 
+static void handle_search_mode(
+    struct Window *win,
+    struct Cursor *cur,
+    enum Mode *mode
+);
+
 static void cursor_advance(struct Cursor *cur) {
     cur->x++;
 }
@@ -350,10 +356,32 @@ static void handle_normal_mode(
             break;
 
         case '/':
-            sprintf(msg_buf, "%c", '/');
-            FLASH_MSG(msg_buf);
-            cursor_advance(cur);
             *mode = SEARCH;
+            memset(cur->buf, 0, 80);
+            cur->buf[0] = '/';
+            cur->buf_idx = 1;
+            cur->old_x = cur->x;
+            cur->old_y = cur->y;
+            cur->x = 0;
+            cur->y = win->maxlines - 1;
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            waddstr(win->curses_win, blank);
+            wmove(win->curses_win, win->maxlines - 1, 0);
+            FLASH_MSG(cur->buf);
+            while ((c = wgetch(win->curses_win))) {
+                if (c == '\n') {
+                    break;
+                }
+                cur->buf[cur->buf_idx++] = c;
+                FLASH_MSG(cur->buf);
+                if (cur->buf_idx >= 80) {
+                    break;
+                }
+            }
+            break;
+
+        case 'n':
+            handle_search_mode(win, cur, mode);
             break;
 
         case 'r':
@@ -540,6 +568,7 @@ static void handle_normal_mode(
 
         case ':':
             *mode = EX;
+            memset(cur->buf, 0, 80);
             cur->buf[0] = ':';
             cur->buf_idx = 1;
             cur->old_x = cur->x;
@@ -571,7 +600,7 @@ static void handle_normal_mode(
     }
 }
 
-long get_index_in_str(const char *line, const char *search_term) {
+static long get_index_in_str(const char *line, const char *search_term) {
     char *str;
     if ((str = strstr(line, search_term))) {
         return 0;
@@ -580,34 +609,20 @@ long get_index_in_str(const char *line, const char *search_term) {
     }
 }
 
-void handle_search_mode(
+static void handle_search_mode(
     struct Window *win,
     struct Cursor *cur,
-    enum Mode *mode,
-    int c
+    enum Mode *mode
 ) {
     struct Text *line = cur->line;
     long index = 0;
-    char buf[50] = {0};
-    char *search_term = buf + 1;
     size_t line_no = cur->line_no;
+
     *mode = NORMAL;
 
-    buf[0] = '/';
-    do {
-        if (c == '\n') {
-            break;
-        }
-        search_term[index++] = c;
-        FLASH_MSG(buf);
-        if (index >= 49) {
-            break;
-        }
-    } while ((c = wgetch(win->curses_win)));
-    search_term[index] = '\0';
-    FLASH_MSG(search_term);
+    FLASH_MSG(cur->buf);
     while (line) {
-        index = get_index_in_str(line->data, search_term);
+        index = get_index_in_str(line->data, cur->buf + 1);
         line_no++;
         if (index >= 0) {
             cur->x = index;
@@ -624,7 +639,7 @@ void handle_search_mode(
 
     if (!line) {
         char buf[80];
-        sprintf(buf, "'%s': not found", search_term);
+        sprintf(buf, "'%s': not found", cur->buf + 1);
         FLASH_MSG(buf);
         wgetch(win->curses_win);
     }
@@ -656,7 +671,7 @@ static int handle_input(
             break;
 
         case SEARCH:
-            handle_search_mode(win, cur, mode, c);
+            handle_search_mode(win, cur, mode);
             break;
 
         case QUIT:
