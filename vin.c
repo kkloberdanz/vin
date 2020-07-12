@@ -41,9 +41,9 @@
         wmove(win->curses_win, cur->y, cur->x); \
     } while (0)
 
-const char *blank = "                                      ";
+static const char *blank = "                                      ";
 
-void sigint_handler(int sig) {
+static void sigint_handler(int sig) {
 #ifdef DEBUG
     UNUSED(sig);
     clrtoeol();
@@ -55,7 +55,7 @@ void sigint_handler(int sig) {
 #endif
 }
 
-static int handle_input(
+static enum Todo handle_input(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -136,7 +136,7 @@ static void redraw_screen(
     wrefresh(win->curses_win);
 }
 
-static void handle_normal_mode(
+static enum Todo handle_normal_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -272,7 +272,7 @@ static void handle_insert_mode(
     }
 }
 
-static void handle_normal_mode(
+static enum Todo handle_normal_mode(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -281,6 +281,7 @@ static void handle_normal_mode(
 ) {
     size_t pos;
     char msg_buf[80];
+    enum Todo todo = GET_CHAR;
     switch (c) {
         case 'k':
             if (cur->line && cur->line->prev) {
@@ -378,6 +379,7 @@ static void handle_normal_mode(
                     break;
                 }
             }
+            todo = DONT_GET_CHAR;
             break;
 
         case 'n':
@@ -598,6 +600,7 @@ static void handle_normal_mode(
             }
             break;
     }
+    return todo;
 }
 
 static long get_index_in_str(const char *line, const char *search_term) {
@@ -645,7 +648,7 @@ static void handle_search_mode(
     }
 }
 
-static int handle_input(
+static enum Todo handle_input(
     struct Window *win,
     struct Cursor *cur,
     enum Mode *mode,
@@ -653,10 +656,10 @@ static int handle_input(
     struct Command *cmd,
     char *filename
 ) {
-
+    enum Todo todo = GET_CHAR;
     switch (*mode) {
         case NORMAL:
-            handle_normal_mode(win, cur, mode, c, cmd);
+            todo = handle_normal_mode(win, cur, mode, c, cmd);
             getmaxyx(win->curses_win, win->maxlines, win->maxcols);
             wmove(win->curses_win, cur->y, cur->x);
             wrefresh(win->curses_win);
@@ -675,20 +678,13 @@ static int handle_input(
             break;
 
         case QUIT:
-            return 0;
+            return TERMINATE;
     }
 
-    switch (*mode) {
-        case NORMAL:
-        case INSERT:
-
-        default:
-            break;
-    }
     getmaxyx(win->curses_win, win->maxlines, win->maxcols);
     wmove(win->curses_win, cur->y, cur->x);
     wrefresh(win->curses_win);
-    return 1;
+    return todo;
 }
 
 static int event_loop(
@@ -696,19 +692,29 @@ static int event_loop(
     struct Cursor *cur,
     char *filename
 ) {
-    int c;
+    int c = '\n';
+    enum Todo todo = GET_CHAR;
     enum Mode mode = NORMAL;
     struct Command cmd;
     cur->x = 0;
     cur->y = 0;
     cmd.len = 0;
     redraw_screen(win, cur, mode);
-    while ((c = wgetch(win->curses_win))) {
-        if (handle_input(win, cur, &mode, c, &cmd, filename) == 0) {
-            break;
+    while (1) {
+        if (todo == GET_CHAR) {
+            c = wgetch(win->curses_win);
+        }
+        todo = handle_input(win, cur, &mode, c, &cmd, filename);
+        switch (todo) {
+            case DONT_GET_CHAR:
+            case GET_CHAR:
+                break;
+            case TERMINATE:
+                goto quit;
         }
         redraw_screen(win, cur, mode);
     }
+quit:
     return 1;
 }
 

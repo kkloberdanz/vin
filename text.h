@@ -28,10 +28,16 @@ struct Text {
     struct Text *next;
 };
 
+enum Todo {
+    GET_CHAR,
+    TERMINATE,
+    DONT_GET_CHAR
+};
+
 /**
  * create a new empty line
  */
-struct Text *text_make_line();
+struct Text *text_make_line(void);
 
 /**
  * Inserts a single character to the end of the current line

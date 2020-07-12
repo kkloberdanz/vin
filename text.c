@@ -46,7 +46,7 @@ static struct Text *text_new_line(struct Text *prev, struct Text *next) {
     return line;
 }
 
-struct Text *text_make_line() {
+struct Text *text_make_line(void) {
     struct Text *line = calloc(1, sizeof(struct Text));
     line->next = NULL;
     line->prev = NULL;
