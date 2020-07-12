@@ -80,6 +80,7 @@ static void redraw_screen(
 ) {
     struct Text *line;
     size_t i;
+    size_t screen_pos;
     char msg[80] = {0};
     memset(msg, ' ', 79);
     wclear(win->curses_win);
@@ -111,7 +112,18 @@ static void redraw_screen(
     wmove(win->curses_win, win->maxlines - 1, 55);
     sprintf(msg, "%lu - %lu", cur->x + 1, cur->line_no);
     waddstr(win->curses_win, msg);
-    wmove(win->curses_win, cur->y, cur->x);
+    /* count tabs to the left of the cursor, and add 8 spaces per tab */
+    screen_pos = 0;
+    for (i = 0; i <= cur->x; i++) {
+        if (cur->line->data[i] == '\t') {
+            fprintf(stderr, "found tab\n");
+            screen_pos += 8;
+        } else {
+            screen_pos++;
+        }
+    }
+    fprintf(stderr, "cursor: %lu, screen: %lu\n", cur->x, screen_pos);
+    wmove(win->curses_win, cur->y, screen_pos - 1);
     wrefresh(win->curses_win);
 }
 
@@ -217,9 +229,7 @@ static void handle_insert_mode(
             if (cur->line && cur->line->len > 0) {
                 cur->line->len--;
             }
-            wmove(win->curses_win, cur->y, cur->x);
-            wrefresh(win->curses_win);
-            waddch(win->curses_win, ' ');
+            redraw_screen(win, cur, *mode);
             text_backspace(cur->line, cur->x);
             break;
 
@@ -311,11 +321,7 @@ static void handle_normal_mode(
             }
             if (cur->x < pos) {
                 if (cur->x < win->maxcols - 1) {
-                    if (cur->line->data[cur->x] == '\t') {
-                        cur->x += 8;
-                    } else {
-                        cur->x++;
-                    }
+                    cur->x++;
                 }
             }
             cur->old_x = cur->x;
@@ -323,11 +329,7 @@ static void handle_normal_mode(
 
         case 'h':
             if (cur->x > 0) {
-                if (cur->line->data[cur->x] == '\t') {
-                    cur->x -= 8;
-                } else {
-                    cur->x--;
-                }
+                cur->x--;
             }
             break;
 
@@ -676,7 +678,6 @@ static int event_loop(
     int c;
     enum Mode mode = NORMAL;
     struct Command cmd;
-    redraw_screen(win, cur, mode);
     cur->x = 0;
     cur->y = 0;
     cmd.len = 0;
@@ -684,6 +685,7 @@ static int event_loop(
         if (handle_input(win, cur, &mode, c, &cmd, filename) == 0) {
             break;
         }
+        redraw_screen(win, cur, mode);
     }
     return 1;
 }
