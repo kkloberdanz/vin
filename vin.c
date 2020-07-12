@@ -310,6 +310,9 @@ static enum Todo handle_normal_mode(
             break;
 
         case 'u': {
+            if (!cur->before) {
+                break;
+            }
             char *tmp = cur->line->data;
             cur->line->data = cur->before;
             cur->before = tmp;
@@ -502,8 +505,7 @@ static enum Todo handle_normal_mode(
         }
 
         case '$':
-        case 'E': {
-            size_t pos;
+        case 'E':
             if (cur->line->len > 2) {
                 pos = cur->line->len - 2;
             } else {
@@ -512,7 +514,6 @@ static enum Todo handle_normal_mode(
             cur->old_x = SIZE_MAX;
             cur->x = pos;
             break;
-        }
 
         case 'O': {
             struct Text *new_line = text_make_line();
