@@ -312,13 +312,14 @@ static enum Todo handle_normal_mode(
         case 'u': {
             if (!cur->before) {
                 break;
+            } else {
+                char *tmp = cur->line->data;
+                cur->line->data = cur->before;
+                cur->before = tmp;
+                cur->line->len = strlen(cur->line->data);
+                cur->line->capacity = strlen(cur->line->data) + 1;
+                cur->x = 0;
             }
-            char *tmp = cur->line->data;
-            cur->line->data = cur->before;
-            cur->before = tmp;
-            cur->line->len = strlen(cur->line->data);
-            cur->line->capacity = strlen(cur->line->data) + 1;
-            cur->x = 0;
             break;
         }
 
