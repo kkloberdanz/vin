@@ -372,7 +372,7 @@ static enum Todo handle_normal_mode(
             wmove(win->curses_win, win->maxlines - 1, 0);
             FLASH_MSG(cur->buf);
             while ((c = wgetch(win->curses_win))) {
-                if (c == '\n') {
+                if ((c == '\n') || (c == 27)) {
                     break;
                 }
                 cur->buf[cur->buf_idx++] = c;
@@ -381,7 +381,12 @@ static enum Todo handle_normal_mode(
                     break;
                 }
             }
-            todo = DONT_GET_CHAR;
+            if (c != 27) {
+                todo = DONT_GET_CHAR;
+            } else {
+                cur->buf_idx = 0;
+                memset(cur->buf, 0, 80);
+            }
             break;
 
         case 'n':
@@ -649,9 +654,9 @@ static void handle_search_mode(
         sprintf(buf, "'%s': not found", cur->buf + 1);
         FLASH_MSG(buf);
         wgetch(win->curses_win);
+        cur->x = cur->old_x;
+        cur->y = cur->old_y;
     }
-    cur->x = cur->old_x;
-    cur->y = cur->old_y;
 }
 
 static enum Todo handle_input(
