@@ -574,7 +574,7 @@ static void handle_normal_mode(
 long get_index_in_str(const char *line, const char *search_term) {
     char *str;
     if ((str = strstr(line, search_term))) {
-        return (str - search_term - 1) - strlen(search_term);
+        return 0;
     } else {
         return -1;
     }
@@ -607,12 +607,14 @@ void handle_search_mode(
     search_term[index] = '\0';
     FLASH_MSG(search_term);
     while (line) {
-        index = get_index_in_str(cur->line->data, search_term);
+        index = get_index_in_str(line->data, search_term);
         line_no++;
-        if (index > 0) {
+        if (index >= 0) {
             cur->x = index;
             cur->line = line;
             cur->line_no = line_no;
+            cur->top_of_screen = cur->line;
+            cur->y = 0;
             break;
         } else {
             line = line->next;
