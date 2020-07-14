@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <limits.h>
+#include <ctype.h>
 
 #include "vin.h"
 #include "text.h"
@@ -473,9 +474,11 @@ static enum Todo handle_normal_mode(
             break;
         }
 
-        case 'd':
-            switch (*cmd->data) {
+        case 'd': {
+            char next_c = wgetch(win->curses_win);
+            switch (next_c) {
                 case 'd':
+del_line:
                     if (cur->y > 0) {
                         struct Text *tmp;
                         if (cur->clipboard) {
@@ -504,28 +507,28 @@ static enum Todo handle_normal_mode(
                     }
                     break;
 
-                /*
                 case 'w': {
                     size_t i = 0;
+                    char *data = cur->line->data;
                     free(cur->before);
                     cur->before = strdup(cur->line->data);
+                    if (data[cur->x] == '\n') {
+                        goto del_line;
+                    }
+                    text_shift_left(cur->line, cur->x);
                     for (
                         i = cur->x;
-                        cur->line->data[i] != ' ' &&
-                            cur->line->data[i] != '\n';
+                        isalnum(data[cur->x]) ||
+                        data[cur->x] == '_';
                         i++
                     ) {
-                        text_shift_left(cur->line, i);
+                        text_shift_left(cur->line, cur->x);
                     }
-                    memset(cmd, 0, 80);
                     break;
                 }
-                */
-
-                default:
-                    command_add_char(cmd, c);
             }
             break;
+        }
 
         case 'D': {
             cur->line->data[cur->x] = '\n';
