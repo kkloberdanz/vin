@@ -287,6 +287,10 @@ static enum Todo handle_normal_mode(
     char msg_buf[80];
     enum Todo todo = GET_CHAR;
     switch (c) {
+        case 27: /* escape key */
+            memset(cmd, 0, 80);
+            break;
+
         case 'k':
             if (cur->line && cur->line->prev) {
                 cur->line_no--;
@@ -470,35 +474,56 @@ static enum Todo handle_normal_mode(
         }
 
         case 'd':
-            if (*(cmd->data) == 'd') {
-                if (cur->y > 0) {
-                    struct Text *tmp;
-                    if (cur->clipboard) {
-                        free(cur->clipboard->data);
-                        free(cur->clipboard);
-                    }
-                    cur->clipboard = text_copy_line(cur->line);
-                    cur->line->prev->next = cur->line->next;
-                    if (cur->line->next) {
-                        cur->line->next->prev = cur->line->prev;
-                        tmp = cur->line;
-                        cur->line = cur->line->next;
+            switch (*cmd->data) {
+                case 'd':
+                    if (cur->y > 0) {
+                        struct Text *tmp;
+                        if (cur->clipboard) {
+                            free(cur->clipboard->data);
+                            free(cur->clipboard);
+                        }
+                        cur->clipboard = text_copy_line(cur->line);
+                        cur->line->prev->next = cur->line->next;
+                        if (cur->line->next) {
+                            cur->line->next->prev = cur->line->prev;
+                            tmp = cur->line;
+                            cur->line = cur->line->next;
+                        } else {
+                            tmp = cur->line;
+                            cur->line = cur->line->prev;
+                            cur->line->next = NULL;
+                        }
+                        free(tmp->data);
+                        free(tmp);
+                        cmd->len = 0;
+                        memset(cmd, 0, 80);
                     } else {
-                        tmp = cur->line;
-                        cur->line = cur->line->prev;
-                        cur->line->next = NULL;
+                        handle_normal_mode(win, cur, mode, 'D', cmd);
+                        cur->y = 0;
+                        cur->x = 0;
                     }
-                    free(tmp->data);
-                    free(tmp);
-                    cmd->len = 0;
+                    break;
+
+                /*
+                case 'w': {
+                    size_t i = 0;
+                    free(cur->before);
+                    cur->before = strdup(cur->line->data);
+                    for (
+                        i = cur->x;
+                        cur->line->data[i] != ' ' &&
+                            cur->line->data[i] != '\n';
+                        i++
+                    ) {
+                        text_shift_left(cur->line, i);
+                    }
                     memset(cmd, 0, 80);
-                } else {
-                    handle_normal_mode(win, cur, mode, 'D', cmd);
-                    cur->y = 0;
-                    cur->x = 0;
+                    break;
                 }
-            } else {
-                command_add_char(cmd, c);
+                */
+
+                default:
+                    command_add_char(cmd, c);
             }
             break;
 
@@ -702,6 +727,7 @@ static enum Todo handle_input(
             break;
 
         case INSERT:
+            cur->line->len = strlen(cur->line->data);
             handle_insert_mode(win, cur, mode, c);
             break;
 
@@ -735,6 +761,7 @@ static int event_loop(
     cur->x = 0;
     cur->y = 0;
     cmd.len = 0;
+    memset(&cmd.data, 0, 80);
     redraw_screen(win, cur, mode);
     while (1) {
         if (todo == GET_CHAR) {
