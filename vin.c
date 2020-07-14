@@ -509,6 +509,7 @@ del_line:
 
                 case 'w': {
                     size_t i = 0;
+                    char was_on_space = 0;
                     char *data = cur->line->data;
                     free(cur->before);
                     cur->before = strdup(cur->line->data);
@@ -516,13 +517,19 @@ del_line:
                         goto del_line;
                     }
                     text_shift_left(cur->line, cur->x);
-                    for (
-                        i = cur->x;
-                        isalnum(data[cur->x]) ||
-                        data[cur->x] == '_';
-                        i++
-                    ) {
+                    while (data[cur->x] == ' ' ||  data[cur->x] == '\t') {
                         text_shift_left(cur->line, cur->x);
+                        was_on_space = 1;
+                    }
+                    if (!was_on_space) {
+                        for (
+                            i = cur->x;
+                            isalnum(data[cur->x]) ||
+                            data[cur->x] == '_';
+                            i++
+                        ) {
+                            text_shift_left(cur->line, cur->x);
+                        }
                     }
                     break;
                 }
