@@ -473,6 +473,11 @@ static enum Todo handle_normal_mode(
             if (*(cmd->data) == 'd') {
                 if (cur->y > 0) {
                     struct Text *tmp;
+                    if (cur->clipboard) {
+                        free(cur->clipboard->data);
+                        free(cur->clipboard);
+                    }
+                    cur->clipboard = text_copy_line(cur->line);
                     cur->line->prev->next = cur->line->next;
                     if (cur->line->next) {
                         cur->line->next->prev = cur->line->prev;
