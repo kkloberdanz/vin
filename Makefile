@@ -48,7 +48,7 @@ sanitize: OPTIM := -ggdb3 -O0 -Werror \
 	-fsanitize=address \
 	-fsanitize=leak \
 	-fsanitize=undefined
-sanitize: all
+sanitize: vin
 
 vin: $(OBJS)
 	$(CC) -o vin $(OBJS) $(CFLAGS) $(LDFLAGS)
