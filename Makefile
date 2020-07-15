@@ -26,6 +26,7 @@ SRC = $(wildcard *.c) $(wildcard extern/*.c)
 HEADERS = $(wildcard *.h)
 OBJS = $(patsubst %.c,%.o,$(SRC))
 
+.PHONY: all
 all: small
 
 .PHONY: small
@@ -43,6 +44,20 @@ small: vin
 
 debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG
 debug: vin
+
+.PHONY: static
+static: CC := cc -static
+static: LDFLAGS := -lcurses -ltinfo
+static: vin
+	strip \
+		-S \
+		--strip-unneeded \
+		--remove-section=.note.gnu.gold-version \
+		--remove-section=.comment \
+		--remove-section=.note \
+		--remove-section=.note.gnu.build-id \
+		--remove-section=.note.ABI-tag \
+		vin
 
 sanitize: OPTIM := -ggdb3 -O0 -Werror \
 	-fsanitize=address \

@@ -91,6 +91,7 @@ static void redraw_screen(
     size_t i;
     size_t screen_pos;
     char msg[80] = {0};
+    char *str = NULL;
     memset(msg, ' ', 79);
     wclear(win->curses_win);
     for (i = 0, line = cur->top_of_screen; line; line = line->next, i++) {
@@ -99,6 +100,15 @@ static void redraw_screen(
         }
 
         wmove(win->curses_win, i, 0);
+        str = line->data;
+        while (*str++) {
+            if (*str == '\r') {
+                *str = '\n';
+                str++;
+                *str = '\0';
+            }
+        }
+        cur->line->len = strlen(line->data);
         waddstr(win->curses_win, line->data);
 
         if (i >= (win->maxlines - 2)) {
@@ -238,7 +248,6 @@ static void handle_insert_mode(
     enum Mode *mode,
     int c
 ) {
-    int i;
     switch (c) {
         case 27: /* escape key */
             *mode = NORMAL;
@@ -262,10 +271,8 @@ static void handle_insert_mode(
             break;
 
         case '\t':
-            for (i = 0; i < 4; i++) {
-                text_insert_char(cur->line, cur->x, ' ');
-                cursor_advance(cur);
-            }
+            text_insert_char(cur->line, cur->x, '\t');
+            cur->x++;
             break;
 
         default:
