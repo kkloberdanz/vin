@@ -58,6 +58,11 @@ static void sigint_handler(int sig) {
 #endif
 }
 
+static void set_clipboard(struct Cursor *cur) {
+    free(cur->before);
+    cur->before = strdup(cur->line->data);
+}
+
 static enum Todo handle_input(
     struct Window *win,
     struct Cursor *cur,
@@ -383,6 +388,7 @@ static enum Todo handle_normal_mode(
             break;
 
         case 'x':
+            set_clipboard(cur);
             if ((cur->x < cur->line->len)
                     && (cur->line->data[cur->x] != '\n')) {
                 text_shift_left(cur->line, cur->x);
@@ -525,8 +531,7 @@ del_line:
                     size_t i = 0;
                     char was_on_space = 0;
                     char *data = cur->line->data;
-                    free(cur->before);
-                    cur->before = strdup(cur->line->data);
+                    set_clipboard(cur);
                     if (data[cur->x] == '\n') {
                         goto del_line;
                     }
@@ -573,8 +578,7 @@ del_line:
         case 'O': {
             struct Text *new_line = text_make_line();
             *mode = INSERT;
-            free(cur->before);
-            cur->before = strdup(cur->line->data);
+            set_clipboard(cur);
             text_insert_line(cur->line->prev, new_line, cur->line);
             cur->x = 0;
             cur->line = new_line;
