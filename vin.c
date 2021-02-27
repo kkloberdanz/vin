@@ -257,11 +257,13 @@ static void handle_insert_mode(
             break;
 
         case 127: /* backspace key */
-            cur->x--;
-            if (cur->line && cur->line->len > 0) {
-                cur->line->len--;
+            if (cur->x > 0) {
+                cur->x--;
+                if (cur->line && cur->line->len > 0) {
+                    cur->line->len--;
+                }
+                text_backspace(cur->line, cur->x);
             }
-            text_backspace(cur->line, cur->x);
             break;
 
         case '\n':
@@ -294,6 +296,7 @@ static enum Todo handle_normal_mode(
     size_t pos;
     char msg_buf[80];
     enum Todo todo = GET_CHAR;
+    cur->line->len = strlen(cur->line->data);
     switch (c) {
         case 27: /* escape key */
             memset(cmd, 0, 80);
@@ -486,6 +489,10 @@ static enum Todo handle_normal_mode(
             switch (next_c) {
                 case 'd':
 del_line:
+                    if (cur->top_of_text == cur->line) {
+                        cur->top_of_text = cur->line->next;
+                        cur->top_of_screen = cur->top_of_text;
+                    }
                     if (cur->y > 0) {
                         struct Text *tmp;
                         if (cur->clipboard) {

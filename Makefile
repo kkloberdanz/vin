@@ -42,7 +42,7 @@ small: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
-debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG
+debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
 debug: vin
 
 .PHONY: static
@@ -59,7 +59,7 @@ static: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
-sanitize: OPTIM := -ggdb3 -O0 -Werror \
+sanitize: OPTIM := -ggdb3 -O0 -Werror -DDEBUG \
 	-fsanitize=address \
 	-fsanitize=leak \
 	-fsanitize=undefined
