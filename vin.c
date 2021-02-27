@@ -611,6 +611,7 @@ del_line:
             switch (next_c) {
                 case 'g':
                     cur->x = 0;
+                    cur->x = 0;
                     cur->y = 0;
                     cur->line_no = 1;
                     cur->line = cur->top_of_text;
@@ -636,12 +637,16 @@ del_line:
             break;
 
         case 'a':
+            free(cur->before);
+            cur->before = strdup(cur->line->data);
             *mode = INSERT;
             cursor_advance(cur);
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
         case 'A':
+            free(cur->before);
+            cur->before = strdup(cur->line->data);
             *mode = INSERT;
             cur->x = cur->line->len - 1;
             break;
