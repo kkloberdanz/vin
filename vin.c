@@ -175,6 +175,7 @@ static enum Todo handle_ex_mode(
     size_t i;
     size_t difference;
     char *p;
+    int do_write = 0;
 
     do {
         cur->buf[cur->buf_idx++] = c;
@@ -194,7 +195,7 @@ static enum Todo handle_ex_mode(
 
             case '\n':
                 if (*mode == QUIT) {
-                    return TERMINATE;
+                    goto leave_ex;
                 }
                 new_l = strtol(buf, &p, 10);
                 if (*p == 0) {
@@ -235,7 +236,7 @@ static enum Todo handle_ex_mode(
 
             case 'w':
                 /* write out */
-                text_write(cur->top_of_text, filename);
+                do_write = 1;
                 break;
 
             default:
@@ -244,6 +245,13 @@ static enum Todo handle_ex_mode(
         }
     } while ((c = wgetch(win->curses_win)));
 leave_ex:
+    if (do_write) {
+        text_write(cur->top_of_text, filename);
+    }
+    if (*mode == QUIT) {
+        return TERMINATE;
+    }
+
     return GET_CHAR;
 }
 
