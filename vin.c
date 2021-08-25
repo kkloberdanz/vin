@@ -255,7 +255,11 @@ static enum Todo handle_ex_mode(
     } while ((c = wgetch(win->curses_win)));
 leave_ex:
     if (do_write) {
+        char msg[1024];
         text_write(cur->top_of_text, filename);
+        sprintf(msg, "wrote file: '%s'", filename);
+        FLASH_MSG(msg);
+        wgetch(win->curses_win);
     }
     if (*mode == QUIT) {
         return TERMINATE;
