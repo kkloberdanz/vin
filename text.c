@@ -127,6 +127,7 @@ void text_read_from_file(struct Text *line, FILE *fp) {
     long tell = ftell(fp);
     while ((getline(&line_of_input, &n, fp) != -1)) {
         text_new_line(line, NULL);
+        free(line->data);
         line->data = strdup(line_of_input);
         line->len = strlen(line->data);
         line->capacity = line->len;
