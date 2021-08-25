@@ -38,11 +38,9 @@ static struct Text *text_new_line(struct Text *prev, struct Text *next) {
         next->prev = line;
     }
 
-    line->data = calloc(2, sizeof(char));
-    line->data[0] = '\n';
-    line->data[1] = '\0';
+    line->data = NULL;
     line->len = 0;
-    line->capacity = 1;
+    line->capacity = 0;
     return line;
 }
 

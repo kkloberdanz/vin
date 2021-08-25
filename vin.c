@@ -121,6 +121,13 @@ static void redraw_screen(
         }
     }
 
+    /* draw '~' when no lines exist at end of file */
+    if (!line) {
+        for (; i < (win->maxlines - 1); i++) {
+            waddstr(win->curses_win, "~\n");
+        }
+    }
+
     switch (mode) {
         case INSERT:
             wmove(win->curses_win, win->maxlines - 1, 0);
@@ -139,10 +146,12 @@ static void redraw_screen(
     /* count tabs to the left of the cursor, and add 8 spaces per tab */
     screen_pos = 0;
     for (i = 0; i <= cur->x; i++) {
-        if (cur->line->data[i] == '\t') {
-            screen_pos += 8;
-        } else {
-            screen_pos++;
+        if (cur->line && cur->line->data) {
+            if (cur->line->data[i] == '\t') {
+                screen_pos += 8;
+            } else {
+                screen_pos++;
+            }
         }
     }
 
@@ -412,6 +421,7 @@ static enum Todo handle_normal_mode(
             cur->old_y = cur->y;
             cur->x = 0;
             cur->y = win->maxlines - 1;
+            cur->x++;
             wmove(win->curses_win, win->maxlines - 1, 0);
             waddstr(win->curses_win, blank);
             wmove(win->curses_win, win->maxlines - 1, 0);
@@ -425,13 +435,17 @@ static enum Todo handle_normal_mode(
                 if (cur->buf_idx >= 80) {
                     break;
                 }
+                cur->x++;
+                wmove(win->curses_win, cur->y, cur->x);
             }
+            cur->x = cur->old_x;
             if (c != 27) {
                 todo = DONT_GET_CHAR;
             } else {
                 cur->buf_idx = 0;
                 memset(cur->buf, 0, 80);
             }
+
             break;
 
         case 'n':
@@ -612,6 +626,8 @@ del_line:
         }
 
         case 'i':
+            memset(cur->buf, 0, 80);
+            cur->buf_idx = 0;
             *mode = INSERT;
             free(cur->before);
             cur->before = strdup(cur->line->data);
@@ -745,8 +761,8 @@ static void handle_search_mode(
         sprintf(buf, "'%s': not found", cur->buf + 1);
         FLASH_MSG(buf);
         wgetch(win->curses_win);
-        cur->x = cur->old_x;
-        cur->y = cur->old_y;
+        cur->x = 0;
+        cur->y = 0;
     }
 }
 
@@ -878,6 +894,7 @@ int main(int argc, char **argv) {
 
     free(cur.clipboard);
     free(cur.buf);
+    free(cur.before);
 
     /* exit curses */
     clrtoeol();
