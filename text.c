@@ -154,6 +154,7 @@ struct Text *text_split_line(struct Text *line, size_t index) {
 
 struct Text *text_copy_line(struct Text *line) {
     struct Text *new_line = calloc(1, sizeof(struct Text));
+    free(new_line->data);
     new_line->data = strdup(line->data);
     new_line->len = strlen(line->data);
     new_line->capacity = new_line->len + 1;
