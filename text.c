@@ -145,7 +145,7 @@ struct Text *text_split_line(struct Text *line, size_t index) {
     text_insert_line(line, new_line, line->next);
     new_line->data = strdup(line->data + index);
     new_line->len = strlen(new_line->data);
-    new_line->capacity = new_line->len + 1;
+    new_line->capacity = new_line->len;
     line->data[index] = '\n';
     line->data[index + 1] = '\0';
     line->len = index;
@@ -154,10 +154,9 @@ struct Text *text_split_line(struct Text *line, size_t index) {
 
 struct Text *text_copy_line(struct Text *line) {
     struct Text *new_line = calloc(1, sizeof(struct Text));
-    free(new_line->data);
     new_line->data = strdup(line->data);
     new_line->len = strlen(line->data);
-    new_line->capacity = new_line->len + 1;
+    new_line->capacity = new_line->len;
     new_line->next = NULL;
     new_line->prev = NULL;
     return new_line;
