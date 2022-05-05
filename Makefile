@@ -42,6 +42,7 @@ small: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
+.PHONY: debug
 debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
 debug: vin
 
