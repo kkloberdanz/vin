@@ -18,9 +18,15 @@
 CC=cc
 STD=-std=c89
 WARN_FLAGS=-Wall -Wextra -Wpedantic
-OPTIM=-Os
+OPT=-Os
 LDFLAGS=-lcurses
-CFLAGS= $(WARN_FLAGS) $(OPTIM) $(STD)
+WARNING=-Wall -Wextra -Wpedantic -Wfloat-equal -Wundef -Wshadow \
+		-Wpointer-arith -Wcast-align -Wstrict-prototypes -Wmissing-prototypes \
+		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
+		-Wswitch-enum -Wunreachable-code -Wformat -Wformat -Wformat-security
+
+FLAGS=-fstack-protector-all -fPIC -D_FORTIFY_SOURCE=2
+CFLAGS=$(WARNING) $(STD) $(OPT) $(FLAGS)
 
 SRC = $(wildcard *.c) $(wildcard extern/*.c)
 HEADERS = $(wildcard *.h)

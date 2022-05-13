@@ -136,6 +136,10 @@ static void redraw_screen(
             waddstr(win->curses_win, "-- INSERT --");
             break;
 
+        case EX:
+        case QUIT:
+        case NORMAL:
+        case SEARCH:
         default:
             break;
     }
