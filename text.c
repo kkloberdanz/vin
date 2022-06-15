@@ -20,6 +20,7 @@
 #include <sys/types.h>
 
 #include "text.h"
+#include "vin.h"
 
 ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
@@ -77,12 +78,12 @@ void text_write(struct Text *line, char *filename) {
         return;
     }
     fp = fopen(filename, "w");
+    if (!fp) {
+        fprintf(stderr, "failed to open file: '%s'", filename);
+        exit(EXIT_FAILURE);
+    }
     for (; line; line = line->next) {
-        int i = 0;
-        for (i = 0; line->data[i] != '\0' && line->data[i] != '\n'; i++) {
-            fputc(line->data[i], fp);
-        }
-        fputc('\n', fp);
+        fprintf(fp, "%s", line->data);
     }
     fflush(fp);
     fclose(fp);

@@ -18,14 +18,14 @@
 CC=cc
 STD=-std=c89
 WARN_FLAGS=-Wall -Wextra -Wpedantic
-OPT=-Os
+OPT=-Os -D_FORTIFY_SOURCE=2
 LDFLAGS=-lcurses
 WARNING=-Wall -Wextra -Wpedantic -Wfloat-equal -Wundef -Wshadow \
 		-Wpointer-arith -Wcast-align -Wstrict-prototypes -Wmissing-prototypes \
 		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
 		-Wswitch-enum -Wunreachable-code -Wformat -Wformat -Wformat-security
 
-FLAGS=-fstack-protector-all -fPIC -D_FORTIFY_SOURCE=2
+FLAGS=-fstack-protector-all -fPIE
 CFLAGS=$(WARNING) $(STD) $(OPT) $(FLAGS)
 
 SRC = $(wildcard *.c) $(wildcard extern/*.c)
@@ -36,7 +36,7 @@ OBJS = $(patsubst %.c,%.o,$(SRC))
 all: small
 
 .PHONY: small
-small: OPTIM := -Os
+small: OPT := -Os
 small: vin
 	strip \
 		-S \
@@ -49,7 +49,7 @@ small: vin
 		vin
 
 .PHONY: debug
-debug: OPTIM := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
+debug: OPT := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
 debug: vin
 
 .PHONY: static
@@ -66,7 +66,7 @@ static: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
-sanitize: OPTIM := -ggdb3 -O0 -Werror -DDEBUG \
+sanitize: OPT := -ggdb3 -O0 -Werror -DDEBUG \
 	-fsanitize=address \
 	-fsanitize=leak \
 	-fsanitize=undefined
