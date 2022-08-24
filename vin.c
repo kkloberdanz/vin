@@ -260,9 +260,13 @@ static enum Todo handle_ex_mode(
 leave_ex:
     if (do_write) {
         char msg[1024];
-        text_write(cur->top_of_text, filename);
-        sprintf(msg, "wrote file: '%s'", filename);
-        FLASH_MSG(msg);
+        if (filename != NULL) {
+            text_write(cur->top_of_text, filename);
+            sprintf(msg, "wrote file: '%s'", filename);
+            FLASH_MSG(msg);
+        } else {
+            FLASH_MSG("no file open");
+        }
         wgetch(win->curses_win);
     }
     if (*mode == QUIT) {
