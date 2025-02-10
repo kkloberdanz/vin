@@ -562,7 +562,6 @@ del_line:
                     break;
 
                 case 'w': {
-                    size_t i = 0;
                     char was_on_space = 0;
                     char *data = cur->line->data;
                     set_clipboard(cur);
@@ -575,11 +574,9 @@ del_line:
                         was_on_space = 1;
                     }
                     if (!was_on_space) {
-                        for (
-                            i = cur->x;
+                        for (;
                             isalnum(data[cur->x]) ||
                             data[cur->x] == '_';
-                            i++
                         ) {
                             text_shift_left(cur->line, cur->x);
                         }

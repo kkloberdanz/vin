@@ -38,15 +38,6 @@ all: small
 .PHONY: small
 small: OPT := -Os
 small: vin
-	strip \
-		-S \
-		--strip-unneeded \
-		--remove-section=.note.gnu.gold-version \
-		--remove-section=.comment \
-		--remove-section=.note \
-		--remove-section=.note.gnu.build-id \
-		--remove-section=.note.ABI-tag \
-		vin
 
 .PHONY: debug
 debug: OPT := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
@@ -68,7 +59,6 @@ static: vin
 
 sanitize: OPT := -ggdb3 -O0 -Werror -DDEBUG \
 	-fsanitize=address \
-	-fsanitize=leak \
 	-fsanitize=undefined
 sanitize: vin
 
