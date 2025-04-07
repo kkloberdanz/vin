@@ -7,12 +7,12 @@ A vi like text editor, also French for wine.
 There's really no good reason to use this editor. Vim is a far superior vi in
 every way. This editor was created as a joke. When working with docker
 containers, I always found myself needing to `apt install vim` over and over
-again because my DevOps friend and colleague was additament that text editors
+again because my DevOps friend and colleague was adamant that text editors
 should not be installed in containers.
 
 According to him:
 
-> The whole point is to make the container small right? And vim is way to big
+> The whole point is to make the container small right? And vim is way too big
 > that it takes up too much space in a container.
 
 I'll show you! I thought. I'll make the smallest useful text editor I can!
