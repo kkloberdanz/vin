@@ -17,13 +17,14 @@
 
 CC=cc
 STD=-std=c89
-WARN_FLAGS=-Wall -Wextra -Wpedantic
 OPT=-Os -D_FORTIFY_SOURCE=2
 LDFLAGS=-lcurses
 WARNING=-Wall -Wextra -Wpedantic -Wfloat-equal -Wundef -Wshadow \
 		-Wpointer-arith -Wcast-align -Wstrict-prototypes -Wmissing-prototypes \
 		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
-		-Wswitch-enum -Wunreachable-code -Wformat -Wformat -Wformat-security
+		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
+		-Wswitch-enum -Wunreachable-code -Wformat -Wformat -Wformat-security \
+		-Wno-error=deprecated-declarations
 
 FLAGS=-fstack-protector-all -fPIE
 CFLAGS=$(WARNING) $(STD) $(OPT) $(FLAGS)
