@@ -17,21 +17,40 @@
 
 CC=cc
 STD=-std=c89
-OPT=-Os -D_FORTIFY_SOURCE=2
-LDFLAGS=-lcurses
+OPT=-Os
+# needs optimization and does not mix with the sanitizers, so the debug and
+# sanitize builds turn it off
+FORTIFY=-D_FORTIFY_SOURCE=2
+# -fPIE only makes a position independent executable on Linux when the link
+# step asks for it too. MacOS does this by default and warns about the flag.
+ifeq ($(shell uname -s),Linux)
+LDFLAGS=-pie
+else
+LDFLAGS=
+endif
+LDLIBS=-lcurses
 WARNING=-Wall -Wextra -Wpedantic -Wfloat-equal -Wundef -Wshadow \
 		-Wpointer-arith -Wcast-align -Wstrict-prototypes -Wmissing-prototypes \
 		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
-		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
-		-Wswitch-enum -Wunreachable-code -Wformat -Wformat -Wformat-security \
+		-Wswitch-enum -Wunreachable-code -Wformat=2 \
 		-Wno-error=deprecated-declarations
 
 FLAGS=-fstack-protector-all -fPIE
-CFLAGS=$(WARNING) $(STD) $(OPT) $(FLAGS)
+CFLAGS=$(WARNING) $(STD) $(OPT) $(FORTIFY) $(FLAGS)
 
 SRC = $(wildcard *.c) $(wildcard extern/*.c)
 HEADERS = $(wildcard *.h)
 OBJS = $(patsubst %.c,%.o,$(SRC))
+
+# Objects from one kind of build must not be reused by another (e.g. 'make'
+# followed by 'make debug'), so remember which kind was built last and start
+# over when it changes. Dry runs (make -n) leave everything alone.
+BUILD_TYPE := $(firstword $(filter debug static sanitize,$(MAKECMDGOALS)) small)
+ifeq ($(findstring n,$(firstword -$(MAKEFLAGS))),)
+ifneq ($(BUILD_TYPE),$(shell cat .build-type 2>/dev/null))
+$(shell rm -f vin $(OBJS); echo $(BUILD_TYPE) > .build-type)
+endif
+endif
 
 .PHONY: all
 all: small
@@ -42,11 +61,13 @@ small: vin
 
 .PHONY: debug
 debug: OPT := -ggdb3 -O0 -Werror -DDEBUG -fsanitize=address
+debug: FORTIFY :=
 debug: vin
 
 .PHONY: static
 static: CC := cc -static
-static: LDFLAGS := -lcurses -ltinfo
+static: LDFLAGS :=
+static: LDLIBS := -lcurses -ltinfo
 static: vin
 	strip \
 		-S \
@@ -58,13 +79,15 @@ static: vin
 		--remove-section=.note.ABI-tag \
 		vin
 
+.PHONY: sanitize
 sanitize: OPT := -ggdb3 -O0 -Werror -DDEBUG \
 	-fsanitize=address \
 	-fsanitize=undefined
+sanitize: FORTIFY :=
 sanitize: vin
 
 vin: $(OBJS)
-	$(CC) -o vin $(OBJS) $(CFLAGS) $(LDFLAGS)
+	$(CC) -o vin $(OBJS) $(CFLAGS) $(LDFLAGS) $(LDLIBS)
 
 %.o: %.c $(HEADERS)
 	$(CC) -c $< -o $@ $(CFLAGS)
@@ -73,5 +96,6 @@ vin: $(OBJS)
 clean:
 	rm -f vin
 	rm -f *.o
+	rm -f .build-type
 	rm -f core
 	rm -f a.out

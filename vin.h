@@ -22,7 +22,7 @@
 #include <curses.h>
 
 #ifndef SIZE_MAX
-#define SIZE_MAX sizeof(size_t)
+#define SIZE_MAX ((size_t)-1)
 #endif
 
 struct Cursor {
@@ -38,6 +38,7 @@ struct Cursor {
     struct Text *clipboard;
     char *buf;
     char *before;
+    struct Text *before_line; /* the line that 'before' is a snapshot of */
 };
 
 struct Window {

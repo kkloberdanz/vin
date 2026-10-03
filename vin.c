@@ -36,6 +36,7 @@
 
 #define FLASH_MSG(MSG) \
     do { \
+        wmove(win->curses_win, win->maxlines - 1, 0); \
         waddstr(win->curses_win, blank); \
         wmove(win->curses_win, win->maxlines - 1, 0); \
         waddstr(win->curses_win, (MSG)); \
@@ -61,6 +62,7 @@ static void sigint_handler(int sig) {
 static void set_clipboard(struct Cursor *cur) {
     free(cur->before);
     cur->before = strdup(cur->line->data);
+    cur->before_line = cur->line;
 }
 
 static enum Todo handle_input(
@@ -82,6 +84,67 @@ static void cursor_advance(struct Cursor *cur) {
     cur->x++;
 }
 
+/* move the cursor down one row, scrolling if it is at the bottom */
+static void cursor_row_down(struct Window *win, struct Cursor *cur) {
+    if (cur->y < win->maxlines - 2) {
+        cur->y++;
+    } else {
+        if (cur->top_of_screen && cur->top_of_screen->next) {
+            cur->top_of_screen = cur->top_of_screen->next;
+        }
+    }
+}
+
+/* remove the current line from the text and put it on the clipboard */
+static void delete_line(struct Cursor *cur) {
+    struct Text *tmp = cur->line;
+
+    if (cur->clipboard) {
+        free(cur->clipboard->data);
+        free(cur->clipboard);
+    }
+    cur->clipboard = text_copy_line(tmp);
+    cur->x = 0;
+
+    if (!tmp->prev && !tmp->next) {
+        /* the only line in the text, so empty it instead of removing it */
+        free(tmp->data);
+        tmp->data = strdup("\n");
+        tmp->len = 1;
+        tmp->capacity = 1;
+        return;
+    }
+
+    if (tmp->prev) {
+        tmp->prev->next = tmp->next;
+    }
+    if (tmp->next) {
+        tmp->next->prev = tmp->prev;
+        cur->line = tmp->next;
+    } else {
+        cur->line = tmp->prev;
+        cur->line_no--;
+        if (cur->y > 0) {
+            cur->y--;
+        }
+    }
+
+    if (cur->top_of_text == tmp) {
+        cur->top_of_text = tmp->next;
+    }
+    if (cur->top_of_screen == tmp) {
+        cur->top_of_screen = cur->line;
+    }
+    if (cur->before_line == tmp) {
+        free(cur->before);
+        cur->before = NULL;
+        cur->before_line = NULL;
+    }
+
+    free(tmp->data);
+    free(tmp);
+}
+
 static void wputchar(struct Window *win, struct Cursor *cur, int c) {
     waddch(win->curses_win, c);
     cursor_advance(cur);
@@ -95,6 +158,7 @@ static void redraw_screen(
     struct Text *line;
     size_t i;
     size_t screen_pos;
+    size_t line_len = 0;
     char msg[80] = {0};
     char *str = NULL;
     memset(msg, ' ', 79);
@@ -113,7 +177,7 @@ static void redraw_screen(
                 *str = '\0';
             }
         }
-        cur->line->len = strlen(line->data);
+        line->len = strlen(line->data);
         waddstr(win->curses_win, line->data);
 
         if (i >= (win->maxlines - 2)) {
@@ -148,14 +212,16 @@ static void redraw_screen(
     sprintf(msg, "%lu - %lu", cur->x + 1, cur->line_no);
     waddstr(win->curses_win, msg);
     /* count tabs to the left of the cursor, and add 8 spaces per tab */
+    /* in the other modes the cursor is on the status line, not in the text */
+    if ((mode == NORMAL || mode == INSERT) && cur->line && cur->line->data) {
+        line_len = strlen(cur->line->data);
+    }
     screen_pos = 0;
     for (i = 0; i <= cur->x; i++) {
-        if (cur->line && cur->line->data) {
-            if (cur->line->data[i] == '\t') {
-                screen_pos += 8;
-            } else {
-                screen_pos++;
-            }
+        if (i < line_len && cur->line->data[i] == '\t') {
+            screen_pos += 8;
+        } else {
+            screen_pos++;
         }
     }
 
@@ -191,12 +257,15 @@ static enum Todo handle_ex_mode(
     int do_write = 0;
 
     do {
-        cur->buf[cur->buf_idx++] = c;
+        if (cur->buf_idx < 79) {
+            cur->buf[cur->buf_idx++] = c;
+        }
         redraw_screen(win, cur, *mode);
         wputchar(win, cur, c);
         switch (c) {
             case 27: /* escape key */
                 *mode = NORMAL;
+                do_write = 0;
                 wmove(win->curses_win, win->maxlines - 1, 0);
                 waddstr(win->curses_win, blank);
                 cur->x = cur->old_x;
@@ -210,33 +279,31 @@ static enum Todo handle_ex_mode(
                 if (*mode == QUIT) {
                     goto leave_ex;
                 }
+                /* put the cursor back in the text before jumping, so that
+                 * 'j' and 'k' move and scroll from the real cursor row */
+                cur->x = cur->old_x;
+                cur->y = cur->old_y;
                 new_l = strtol(buf, &p, 10);
-                if (*p == 0) {
+                if (buf_index > 0 && *p == 0) {
                     if (new_l > cur->line_no) {
                         difference = new_l - cur->line_no;
-                        for (i = 0; i < difference; i++) {
+                        for (i = 0; i < difference && cur->line->next; i++) {
                             handle_normal_mode(win, cur, mode, 'j', NULL);
                         }
                         handle_normal_mode(win, cur, mode, '0', NULL);
 
-                    } else if (new_l == cur->line_no) {
-                        /* do nothing */
-                    } else {
-                        /* no idea why this isn't working. disabling for now
+                    } else if (new_l < cur->line_no) {
                         difference = cur->line_no - new_l;
-                        for (i = 0; i < difference; i++) {
+                        for (i = 0; i < difference && cur->line->prev; i++) {
                             handle_normal_mode(win, cur, mode, 'k', NULL);
                         }
                         handle_normal_mode(win, cur, mode, '0', NULL);
-                        */
                     }
 
                 }
                 *mode = NORMAL;
                 wmove(win->curses_win, win->maxlines - 1, 0);
                 waddstr(win->curses_win, blank);
-                cur->x = cur->old_x;
-                cur->y = cur->old_y;
 
                 cur->buf[cur->buf_idx] = '0';
                 cur->buf_idx = 0;
@@ -253,20 +320,35 @@ static enum Todo handle_ex_mode(
                 break;
 
             default:
-                buf[buf_index++] = c;
+                if (buf_index < sizeof(buf) - 1) {
+                    buf[buf_index++] = c;
+                }
                 break;
         }
     } while ((c = wgetch(win->curses_win)));
 leave_ex:
     if (do_write) {
         char msg[1024];
+        int wrote = 0;
         if (filename != NULL) {
-            text_write(cur->top_of_text, filename);
-            sprintf(msg, "wrote file: '%s'", filename);
-            FLASH_MSG(msg);
+            if (text_write(cur->top_of_text, filename) == 0) {
+                wrote = 1;
+                sprintf(msg, "wrote file: '%.900s'", filename);
+            } else {
+                sprintf(msg, "failed to write file: '%.900s'", filename);
+            }
         } else {
-            FLASH_MSG("no file open");
+            sprintf(msg, "no file open");
         }
+        if (!wrote && *mode == QUIT) {
+            /* don't quit and throw away text that could not be saved */
+            *mode = NORMAL;
+            cur->x = cur->old_x;
+            cur->y = cur->old_y;
+            cur->buf_idx = 0;
+            memset(cur->buf, 0, 80);
+        }
+        FLASH_MSG(msg);
         wgetch(win->curses_win);
     }
     if (*mode == QUIT) {
@@ -301,8 +383,9 @@ static void handle_insert_mode(
             break;
 
         case '\n':
-            cur->y++;
             cur->line = text_split_line(cur->line, cur->x);
+            cur->line_no++;
+            cursor_row_down(win, cur);
             cur->x = 0;
             break;
 
@@ -359,14 +442,15 @@ static enum Todo handle_normal_mode(
             break;
 
         case 'u': {
-            if (!cur->before) {
+            /* the snapshot only applies to the line it was taken from */
+            if (!cur->before || cur->before_line != cur->line) {
                 break;
             } else {
                 char *tmp = cur->line->data;
                 cur->line->data = cur->before;
                 cur->before = tmp;
                 cur->line->len = strlen(cur->line->data);
-                cur->line->capacity = strlen(cur->line->data) + 1;
+                cur->line->capacity = cur->line->len;
                 cur->x = 0;
             }
             break;
@@ -385,13 +469,7 @@ static enum Todo handle_normal_mode(
 
                 cur->old_x = MAX(cur->x, cur->old_x);
                 cur->x = MIN(cur->old_x, pos);
-                if (cur->y < win->maxlines - 2) {
-                    cur->y++;
-                } else {
-                    if (cur->top_of_screen && cur->top_of_screen->next) {
-                        cur->top_of_screen = cur->top_of_screen->next;
-                    }
-                }
+                cursor_row_down(win, cur);
             }
             break;
 
@@ -444,13 +522,15 @@ static enum Todo handle_normal_mode(
                 }
                 cur->buf[cur->buf_idx++] = c;
                 FLASH_MSG(cur->buf);
-                if (cur->buf_idx >= 80) {
+                /* leave room for the terminating '\0' */
+                if (cur->buf_idx >= 79) {
                     break;
                 }
                 cur->x++;
                 wmove(win->curses_win, cur->y, cur->x);
             }
             cur->x = cur->old_x;
+            cur->y = cur->old_y;
             if (c != 27) {
                 todo = DONT_GET_CHAR;
             } else {
@@ -471,14 +551,18 @@ static enum Todo handle_normal_mode(
             }
             break;
 
-        case '~': {
-            char *under_cursor = &cur->line->data[cur->x];
-            if (isalpha(*under_cursor)) {
-                *under_cursor ^= 0x20;
+        case '~':
+            if (cur->x < cur->line->len) {
+                char *under_cursor = &cur->line->data[cur->x];
+                if (isalpha((unsigned char)*under_cursor)) {
+                    *under_cursor ^= 0x20;
+                }
             }
-            cursor_advance(cur);
+            /* don't advance past the last character of the line */
+            if (cur->line->len > 2 && cur->x < cur->line->len - 2) {
+                cursor_advance(cur);
+            }
             break;
-        }
 
         case 'y': {
             char next_cmd = wgetch(win->curses_win);
@@ -502,11 +586,17 @@ static enum Todo handle_normal_mode(
             if ((cur->line->data[cur->x] == '\n') ||
                 (cur->line->data[cur->x + 1] == '\n')
             ) {
+                if (!cur->line->next) {
+                    break;
+                }
+                /* go to the first word of the next line */
                 handle_normal_mode(win, cur, mode, '0', cmd);
                 handle_normal_mode(win, cur, mode, 'j', cmd);
-            }
-            while (c != ' ' && c != '\n' && c != '\0') {
-                c = cur->line->data[++cur->x];
+                c = cur->line->data[cur->x];
+            } else {
+                while (c != ' ' && c != '\n' && c != '\0') {
+                    c = cur->line->data[++cur->x];
+                }
             }
             while (c == ' ' && c != '\n' && c != '\0') {
                 c = cur->line->data[++cur->x];
@@ -529,36 +619,9 @@ static enum Todo handle_normal_mode(
             switch (next_c) {
                 case 'd':
 del_line:
-                    if (cur->top_of_text == cur->line) {
-                        cur->top_of_text = cur->line->next;
-                        cur->top_of_screen = cur->top_of_text;
-                    }
-                    if (cur->y > 0) {
-                        struct Text *tmp;
-                        if (cur->clipboard) {
-                            free(cur->clipboard->data);
-                            free(cur->clipboard);
-                        }
-                        cur->clipboard = text_copy_line(cur->line);
-                        cur->line->prev->next = cur->line->next;
-                        if (cur->line->next) {
-                            cur->line->next->prev = cur->line->prev;
-                            tmp = cur->line;
-                            cur->line = cur->line->next;
-                        } else {
-                            tmp = cur->line;
-                            cur->line = cur->line->prev;
-                            cur->line->next = NULL;
-                        }
-                        free(tmp->data);
-                        free(tmp);
-                        cmd->len = 0;
-                        memset(cmd, 0, 80);
-                    } else {
-                        handle_normal_mode(win, cur, mode, 'D', cmd);
-                        cur->y = 0;
-                        cur->x = 0;
-                    }
+                    delete_line(cur);
+                    cmd->len = 0;
+                    memset(cmd, 0, 80);
                     break;
 
                 case 'w': {
@@ -588,10 +651,14 @@ del_line:
         }
 
         case 'D': {
-            cur->line->data[cur->x] = '\n';
-            cur->line->data[cur->x + 1] = '\0';
-            cur->x--;
-            cur->line->len = cur->x;
+            if (cur->x < cur->line->len) {
+                cur->line->data[cur->x] = '\n';
+                cur->line->data[cur->x + 1] = '\0';
+                cur->line->len = cur->x + 1;
+            }
+            if (cur->x > 0) {
+                cur->x--;
+            }
             break;
         }
 
@@ -611,6 +678,12 @@ del_line:
             *mode = INSERT;
             set_clipboard(cur);
             text_insert_line(cur->line->prev, new_line, cur->line);
+            if (cur->top_of_text == cur->line) {
+                cur->top_of_text = new_line;
+            }
+            if (cur->top_of_screen == cur->line) {
+                cur->top_of_screen = new_line;
+            }
             cur->x = 0;
             cur->line = new_line;
             break;
@@ -619,10 +692,9 @@ del_line:
         case 'o': {
             struct Text *new_line = text_make_line();
             *mode = INSERT;
-            free(cur->before);
-            cur->before = strdup(cur->line->data);
+            set_clipboard(cur);
 
-            cur->y++;
+            cursor_row_down(win, cur);
             cur->line_no++;
             cur->x = 0;
 
@@ -638,8 +710,7 @@ del_line:
             memset(cur->buf, 0, 80);
             cur->buf_idx = 0;
             *mode = INSERT;
-            free(cur->before);
-            cur->before = strdup(cur->line->data);
+            set_clipboard(cur);
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
@@ -674,18 +745,23 @@ del_line:
             break;
 
         case 'a':
-            free(cur->before);
-            cur->before = strdup(cur->line->data);
+            set_clipboard(cur);
             *mode = INSERT;
-            cursor_advance(cur);
+            /* never step past the newline at the end of the line */
+            if ((cur->line->data[cur->x] != '\n')
+                    && (cur->line->data[cur->x] != '\0')) {
+                cursor_advance(cur);
+            }
             wmove(win->curses_win, cur->y, cur->x);
             break;
 
         case 'A':
-            free(cur->before);
-            cur->before = strdup(cur->line->data);
+            set_clipboard(cur);
             *mode = INSERT;
-            cur->x = cur->line->len - 1;
+            cur->x = cur->line->len;
+            if ((cur->x > 0) && (cur->line->data[cur->x - 1] == '\n')) {
+                cur->x--;
+            }
             break;
 
         case '0':
@@ -766,12 +842,10 @@ static void handle_search_mode(
     }
 
     if (!line) {
-        char buf[80];
-        sprintf(buf, "'%s': not found", cur->buf + 1);
+        char buf[128];
+        sprintf(buf, "'%.80s': not found", cur->buf + 1);
         FLASH_MSG(buf);
         wgetch(win->curses_win);
-        cur->x = 0;
-        cur->y = 0;
     }
 }
 
@@ -868,6 +942,7 @@ int main(int argc, char **argv) {
     cur.buf = calloc(1, 80);
     cur.buf_idx = 0;
     cur.before = NULL;
+    cur.before_line = NULL;
 
     /* setup curses */
     initscr();
@@ -901,7 +976,10 @@ int main(int argc, char **argv) {
         line = next;
     }
 
-    free(cur.clipboard);
+    if (cur.clipboard) {
+        free(cur.clipboard->data);
+        free(cur.clipboard);
+    }
     free(cur.buf);
     free(cur.before);
 

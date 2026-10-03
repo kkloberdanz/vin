@@ -4,3 +4,4 @@ vin
 *.o
 *.zip
 testdata/
+.build-type

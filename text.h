@@ -45,9 +45,9 @@ struct Text *text_make_line(void);
 void text_push_char(struct Text *line, char c);
 
 /**
- * writes text out to file
+ * writes text out to file, returns 0 on success and -1 on failure
  */
-void text_write(struct Text *line, char *filename);
+int text_write(struct Text *line, char *filename);
 
 /**
  * backspaces text from the index

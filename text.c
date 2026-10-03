@@ -63,30 +63,35 @@ void text_push_char(struct Text *line, char c) {
         fprintf(stderr, "%s\n", "pushing to null string");
         exit(43);
     }
-    if (line->len >= line->capacity - 1) {
+    if (line->len + 1 > line->capacity) {
         line->capacity = 1 + (line->capacity * 2);
         line->data = realloc(line->data, line->capacity + 1);
     }
 
     line->data[line->len++] = c;
-    line->data[line->len+1] = '\0';
+    line->data[line->len] = '\0';
 }
 
-void text_write(struct Text *line, char *filename) {
+int text_write(struct Text *line, char *filename) {
     FILE *fp = NULL;
+    int status = 0;
     if (!filename) {
-        return;
+        return -1;
     }
     fp = fopen(filename, "w");
     if (!fp) {
-        fprintf(stderr, "failed to open file: '%s'", filename);
-        exit(EXIT_FAILURE);
+        return -1;
     }
     for (; line; line = line->next) {
-        fprintf(fp, "%s", line->data);
+        if (fputs(line->data, fp) == EOF) {
+            status = -1;
+            break;
+        }
     }
-    fflush(fp);
-    fclose(fp);
+    if (fclose(fp) == EOF) {
+        status = -1;
+    }
+    return status;
 }
 
 void text_backspace(struct Text *line, size_t index) {
@@ -101,7 +106,7 @@ void text_insert_char(struct Text *line, size_t index, char c) {
     line->len++;
 
     if (line->len >= line->capacity) {
-        line->capacity *= 2;
+        line->capacity = 1 + (line->capacity * 2);
         line->data = realloc(line->data, line->capacity + 1);
     }
     for (i = line->len - 1; i > index; i--) {
@@ -126,24 +131,31 @@ void text_read_from_file(struct Text *line, FILE *fp) {
     char *line_of_input = NULL;
     size_t n = 0;
     long tell = ftell(fp);
+    int first_line = 1;
     while ((getline(&line_of_input, &n, fp) != -1)) {
-        text_new_line(line, NULL);
+        /* the first line of the file reuses the line that was passed in */
+        if (!first_line) {
+            line = text_new_line(line, NULL);
+        }
+        first_line = 0;
         free(line->data);
         line->data = strdup(line_of_input);
         line->len = strlen(line->data);
         line->capacity = line->len;
-        line = line->next;
     }
     free(line_of_input);
-    line = line->prev;
-    free(line->next);
-    line->next = NULL;
     fseek(fp, tell, SEEK_SET);
 }
 
 struct Text *text_split_line(struct Text *line, size_t index) {
     struct Text *new_line = text_make_line();
     text_insert_line(line, new_line, line->next);
+    /* make room for the '\n' and '\0' written at the split point */
+    if (index + 1 > line->capacity) {
+        line->capacity = index + 1;
+        line->data = realloc(line->data, line->capacity + 1);
+    }
+    free(new_line->data);
     new_line->data = strdup(line->data + index);
     new_line->len = strlen(new_line->data);
     new_line->capacity = new_line->len;
