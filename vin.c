@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <curses.h>
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
@@ -27,6 +26,7 @@
 #include "vin.h"
 #include "text.h"
 #include "command.h"
+#include "term.h"
 
 #define UNUSED(A) (void)(A)
 
@@ -36,11 +36,11 @@
 
 #define FLASH_MSG(MSG) \
     do { \
-        wmove(win->curses_win, win->maxlines - 1, 0); \
-        waddstr(win->curses_win, blank); \
-        wmove(win->curses_win, win->maxlines - 1, 0); \
-        waddstr(win->curses_win, (MSG)); \
-        wmove(win->curses_win, cur->y, cur->x); \
+        term_move(win->maxlines - 1, 0); \
+        term_puts(blank); \
+        term_move(win->maxlines - 1, 0); \
+        term_puts((MSG)); \
+        term_move(cur->y, cur->x); \
     } while (0)
 
 static const char *blank = "                                      ";
@@ -50,9 +50,7 @@ char *strdup(const char *s);
 static void sigint_handler(int sig) {
 #ifdef DEBUG
     UNUSED(sig);
-    clrtoeol();
-    refresh();
-    endwin();
+    term_exit();
     exit(1);
 #else
     signal(sig, SIG_IGN);
@@ -145,8 +143,8 @@ static void delete_line(struct Cursor *cur) {
     free(tmp);
 }
 
-static void wputchar(struct Window *win, struct Cursor *cur, int c) {
-    waddch(win->curses_win, c);
+static void wputchar(struct Cursor *cur, int c) {
+    term_putc(c);
     cursor_advance(cur);
 }
 
@@ -162,13 +160,13 @@ static void redraw_screen(
     char msg[80] = {0};
     char *str = NULL;
     memset(msg, ' ', 79);
-    wclear(win->curses_win);
+    term_home();
     for (i = 0, line = cur->top_of_screen; line; line = line->next, i++) {
         if (!line || !line->data) {
             break;
         }
 
-        wmove(win->curses_win, i, 0);
+        term_move(i, 0);
         str = line->data;
         while (*str++) {
             if (*str == '\r') {
@@ -178,7 +176,8 @@ static void redraw_screen(
             }
         }
         line->len = strlen(line->data);
-        waddstr(win->curses_win, line->data);
+        term_puts(line->data);
+        term_clrtoeol();
 
         if (i >= (win->maxlines - 2)) {
             break;
@@ -188,16 +187,19 @@ static void redraw_screen(
     /* draw '~' when no lines exist at end of file */
     if (!line) {
         for (; i < (win->maxlines - 1); i++) {
-            waddstr(win->curses_win, "~\n");
+            term_puts("~\n");
         }
     }
 
+    term_move(win->maxlines - 1, 0);
+    term_clrtoeol();
+
     switch (mode) {
         case INSERT:
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, msg);
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, "-- INSERT --");
+            term_move(win->maxlines - 1, 0);
+            term_puts(msg);
+            term_move(win->maxlines - 1, 0);
+            term_puts("-- INSERT --");
             break;
 
         case EX:
@@ -208,9 +210,9 @@ static void redraw_screen(
             break;
     }
 
-    wmove(win->curses_win, win->maxlines - 1, 55);
+    term_move(win->maxlines - 1, 55);
     sprintf(msg, "%lu - %lu", cur->x + 1, cur->line_no);
-    waddstr(win->curses_win, msg);
+    term_puts(msg);
     /* count tabs to the left of the cursor, and add 8 spaces per tab */
     /* in the other modes the cursor is on the status line, not in the text */
     if ((mode == NORMAL || mode == INSERT) && cur->line && cur->line->data) {
@@ -225,12 +227,12 @@ static void redraw_screen(
         }
     }
 
-    wmove(win->curses_win, win->maxlines - 1, 0);
-    waddstr(win->curses_win, cur->buf);
-    wmove(win->curses_win, win->maxlines - 1, 0);
+    term_move(win->maxlines - 1, 0);
+    term_puts(cur->buf);
+    term_move(win->maxlines - 1, 0);
 
-    wmove(win->curses_win, cur->y, screen_pos - 1);
-    wrefresh(win->curses_win);
+    term_move(cur->y, screen_pos - 1);
+    term_refresh();
 }
 
 static enum Todo handle_normal_mode(
@@ -261,13 +263,13 @@ static enum Todo handle_ex_mode(
             cur->buf[cur->buf_idx++] = c;
         }
         redraw_screen(win, cur, *mode);
-        wputchar(win, cur, c);
+        wputchar(cur, c);
         switch (c) {
             case 27: /* escape key */
                 *mode = NORMAL;
                 do_write = 0;
-                wmove(win->curses_win, win->maxlines - 1, 0);
-                waddstr(win->curses_win, blank);
+                term_move(win->maxlines - 1, 0);
+                term_puts(blank);
                 cur->x = cur->old_x;
                 cur->y = cur->old_y;
                 cur->buf[cur->buf_idx] = '0';
@@ -302,8 +304,8 @@ static enum Todo handle_ex_mode(
 
                 }
                 *mode = NORMAL;
-                wmove(win->curses_win, win->maxlines - 1, 0);
-                waddstr(win->curses_win, blank);
+                term_move(win->maxlines - 1, 0);
+                term_puts(blank);
 
                 cur->buf[cur->buf_idx] = '0';
                 cur->buf_idx = 0;
@@ -325,7 +327,7 @@ static enum Todo handle_ex_mode(
                 }
                 break;
         }
-    } while ((c = wgetch(win->curses_win)));
+    } while ((c = term_getch()));
 leave_ex:
     if (do_write) {
         char msg[1024];
@@ -349,7 +351,7 @@ leave_ex:
             memset(cur->buf, 0, 80);
         }
         FLASH_MSG(msg);
-        wgetch(win->curses_win);
+        term_getch();
     }
     if (*mode == QUIT) {
         return TERMINATE;
@@ -397,9 +399,9 @@ static void handle_insert_mode(
         default:
             text_insert_char(cur->line, cur->x, c);
             cursor_advance(cur);
-            wmove(win->curses_win, cur->y, 0);
-            waddstr(win->curses_win, cur->line->data);
-            wmove(win->curses_win, cur->y, cur->x);
+            term_move(cur->y, 0);
+            term_puts(cur->line->data);
+            term_move(cur->y, cur->x);
     }
 }
 
@@ -512,11 +514,11 @@ static enum Todo handle_normal_mode(
             cur->x = 0;
             cur->y = win->maxlines - 1;
             cur->x++;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, blank);
-            wmove(win->curses_win, win->maxlines - 1, 0);
+            term_move(win->maxlines - 1, 0);
+            term_puts(blank);
+            term_move(win->maxlines - 1, 0);
             FLASH_MSG(cur->buf);
-            while ((c = wgetch(win->curses_win))) {
+            while ((c = term_getch())) {
                 if ((c == '\n') || (c == 27)) {
                     break;
                 }
@@ -527,7 +529,7 @@ static enum Todo handle_normal_mode(
                     break;
                 }
                 cur->x++;
-                wmove(win->curses_win, cur->y, cur->x);
+                term_move(cur->y, cur->x);
             }
             cur->x = cur->old_x;
             cur->y = cur->old_y;
@@ -547,7 +549,7 @@ static enum Todo handle_normal_mode(
         case 'r':
             if ((cur->x < cur->line->len)
                     && (cur->line->data[cur->x] != '\n')) {
-                cur->line->data[cur->x] = wgetch(win->curses_win);
+                cur->line->data[cur->x] = term_getch();
             }
             break;
 
@@ -565,7 +567,7 @@ static enum Todo handle_normal_mode(
             break;
 
         case 'y': {
-            char next_cmd = wgetch(win->curses_win);
+            char next_cmd = term_getch();
             switch (next_cmd) {
                 case 'y':
                     if (cur->clipboard) {
@@ -615,7 +617,7 @@ static enum Todo handle_normal_mode(
         }
 
         case 'd': {
-            char next_c = wgetch(win->curses_win);
+            char next_c = term_getch();
             switch (next_c) {
                 case 'd':
 del_line:
@@ -711,11 +713,11 @@ del_line:
             cur->buf_idx = 0;
             *mode = INSERT;
             set_clipboard(cur);
-            wmove(win->curses_win, cur->y, cur->x);
+            term_move(cur->y, cur->x);
             break;
 
         case 'g': {
-            char next_c = wgetch(win->curses_win);
+            char next_c = term_getch();
             switch (next_c) {
                 case 'g':
                     cur->x = 0;
@@ -752,7 +754,7 @@ del_line:
                     && (cur->line->data[cur->x] != '\0')) {
                 cursor_advance(cur);
             }
-            wmove(win->curses_win, cur->y, cur->x);
+            term_move(cur->y, cur->x);
             break;
 
         case 'A':
@@ -778,10 +780,10 @@ del_line:
             cur->old_y = cur->y;
             cur->x = 0;
             cur->y = win->maxlines - 1;
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            waddstr(win->curses_win, blank);
-            wmove(win->curses_win, win->maxlines - 1, 0);
-            wputchar(win, cur, c);
+            term_move(win->maxlines - 1, 0);
+            term_puts(blank);
+            term_move(win->maxlines - 1, 0);
+            wputchar(cur, c);
             break;
 
         case '\f':
@@ -789,15 +791,15 @@ del_line:
             break;
 
         default:
-            wmove(win->curses_win, win->maxlines - 1, 0);
+            term_move(win->maxlines - 1, 0);
             switch (c) {
                 case 27:
                     break;
 
                 default:
                     sprintf(msg_buf, "not an editor command: %c", c);
-                    waddstr(win->curses_win, msg_buf);
-                    wmove(win->curses_win, cur->y, cur->x);
+                    term_puts(msg_buf);
+                    term_move(cur->y, cur->x);
             }
             break;
     }
@@ -845,7 +847,7 @@ static void handle_search_mode(
         char buf[128];
         sprintf(buf, "'%.80s': not found", cur->buf + 1);
         FLASH_MSG(buf);
-        wgetch(win->curses_win);
+        term_getch();
     }
 }
 
@@ -861,9 +863,9 @@ static enum Todo handle_input(
     switch (*mode) {
         case NORMAL:
             todo = handle_normal_mode(win, cur, mode, c, cmd);
-            getmaxyx(win->curses_win, win->maxlines, win->maxcols);
-            wmove(win->curses_win, cur->y, cur->x);
-            wrefresh(win->curses_win);
+            term_size(&win->maxlines, &win->maxcols);
+            term_move(cur->y, cur->x);
+            term_refresh();
             break;
 
         case INSERT:
@@ -883,9 +885,9 @@ static enum Todo handle_input(
             return TERMINATE;
     }
 
-    getmaxyx(win->curses_win, win->maxlines, win->maxcols);
-    wmove(win->curses_win, cur->y, cur->x);
-    wrefresh(win->curses_win);
+    term_size(&win->maxlines, &win->maxcols);
+    term_move(cur->y, cur->x);
+    term_refresh();
     return todo;
 }
 
@@ -905,7 +907,10 @@ static int event_loop(
     redraw_screen(win, cur, mode);
     while (1) {
         if (todo == GET_CHAR) {
-            c = wgetch(win->curses_win);
+            c = term_getch();
+            if (c < 0) {
+                goto quit;
+            }
         }
         todo = handle_input(win, cur, &mode, c, &cmd, filename);
         switch (todo) {
@@ -944,15 +949,9 @@ int main(int argc, char **argv) {
     cur.before = NULL;
     cur.before_line = NULL;
 
-    /* setup curses */
-    initscr();
-    cbreak();
-    noecho();
-
-    clear();
-
-    win.maxlines = LINES;
-    win.maxcols = COLS;
+    /* setup the terminal */
+    term_init();
+    term_size(&win.maxlines, &win.maxcols);
 
     if (argc == 2) {
         filename = argv[1];
@@ -965,7 +964,6 @@ int main(int argc, char **argv) {
 
     cur.line = cur.top_of_text;
     cur.top_of_screen = cur.top_of_text;
-    win.curses_win = newwin(win.maxlines, win.maxcols, cur.x, cur.y);
     event_loop(&win, &cur, filename);
 
     line = cur.top_of_text;
@@ -983,10 +981,8 @@ int main(int argc, char **argv) {
     free(cur.buf);
     free(cur.before);
 
-    /* exit curses */
-    clrtoeol();
-    refresh();
-    endwin();
+    /* restore the terminal */
+    term_exit();
 
     return 0;
 }

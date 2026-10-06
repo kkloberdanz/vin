@@ -28,7 +28,7 @@ LDFLAGS=-pie
 else
 LDFLAGS=
 endif
-LDLIBS=-lcurses
+LDLIBS=
 WARNING=-Wall -Wextra -Wpedantic -Wfloat-equal -Wundef -Wshadow \
 		-Wpointer-arith -Wcast-align -Wstrict-prototypes -Wmissing-prototypes \
 		-Wstrict-overflow=5 -Wwrite-strings -Waggregate-return -Wcast-qual \
@@ -67,7 +67,7 @@ debug: vin
 .PHONY: static
 static: CC := cc -static
 static: LDFLAGS :=
-static: LDLIBS := -lcurses -ltinfo
+static: LDLIBS :=
 static: vin
 	strip \
 		-S \

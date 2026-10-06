@@ -15,42 +15,20 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef VIN_H
-#define VIN_H
+#ifndef TERM_H
+#define TERM_H
 
-#include <stdio.h>
+#include <stddef.h>
 
-#ifndef SIZE_MAX
-#define SIZE_MAX ((size_t)-1)
-#endif
+void term_init(void);
+void term_exit(void);
+void term_size(size_t *rows, size_t *cols);
+void term_move(size_t y, size_t x);
+void term_home(void);
+void term_clrtoeol(void);
+void term_puts(const char *s);
+void term_putc(int c);
+void term_refresh(void);
+int term_getch(void);
 
-struct Cursor {
-    size_t x;
-    size_t y;
-    size_t old_x;
-    size_t old_y;
-    size_t line_no;
-    size_t buf_idx;
-    struct Text *line;
-    struct Text *top_of_text;
-    struct Text *top_of_screen;
-    struct Text *clipboard;
-    char *buf;
-    char *before;
-    struct Text *before_line; /* the line that 'before' is a snapshot of */
-};
-
-struct Window {
-    size_t maxlines;
-    size_t maxcols;
-};
-
-enum Mode {
-    NORMAL,
-    INSERT,
-    EX,
-    QUIT,
-    SEARCH
-};
-
-#endif /* VIN_H */
+#endif /* TERM_H */
